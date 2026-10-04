@@ -855,6 +855,8 @@
 	<PropertyGroup>
 		<AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <!-- Test output DLLs must not override the game's references via CandidateAssemblyFiles. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);tests/**/bin/**;tests/**/obj/**</DefaultItemExcludes>
 	</PropertyGroup>
 
 	<Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(AutomateLocalDeployment)' == 'true'">

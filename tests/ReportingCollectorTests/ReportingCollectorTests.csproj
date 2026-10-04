@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <SideDefine Condition="'$(SideDefine)' == ''">CLIENT</SideDefine>
+    <DefineConstants>$(DefineConstants);$(SideDefine);$(RuntimeDefine)</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Lib.Harmony" Version="2.4.2" />
+    <Compile Include="../../Utils/SafeReflection.cs" Link="SafeReflection.cs" />
+    <Compile Include="../../Utils/DedicatedRuntimeContext.cs" Link="DedicatedRuntimeContext.cs" />
+    <Compile Include="../../Shared/Patches/ReportingLogCollectorPatches.cs" Link="ReportingLogCollectorPatches.cs" Condition="Exists('../../Shared/Patches/ReportingLogCollectorPatches.cs')" />
+  </ItemGroup>
+</Project>

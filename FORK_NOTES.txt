@@ -34,3 +34,36 @@ Local setup:
 
 Live hosting is separate from this checkout. These changes have not been
 installed on the live server. Its four-hour save/restart schedule remains.
+
+Current-game reporting collector guard (separate follow-up commit):
+- The upstream server patch resolves only AeLa.EasyFeedback.FormElements.
+  DebugLogCollector. Stable game 0.4.6f13 uses ScheduleOne.Reporting.
+  DebugLogCollector, leaving its throwing callback unguarded.
+- Add a shared, optional Harmony patch for the current game's HandleLog callback.
+  Dedicated server and dedicated client sessions bypass the feedback buffer.
+  Normal single-player/co-op sessions keep it; other logging listeners remain.
+- Regression checks apply the real Harmony patch to a throwing managed callback
+  under both runtime names and both server/client build defines.
+- Exclude nested test build artifacts from the mod's assembly candidates so
+  the test's Harmony DLL cannot supersede the game's Harmony reference.
+
+Customer/map investigation:
+[Confirmed] Client logs show this reporting collector throwing from both
+MapRegionData.SetUnlocked and NPC.ReceiveRelationshipData during reconnect.
+[Confirmed] The mod's existing cleanup clears customer static state before
+loading; no direct sample hand-in or customer-region-unlock override was found.
+[Hypothesized] The throwing feedback callback interrupts progression delivery
+or contributes to stutter. The missing collector guard is corrected, but the
+sample-to-customer/map behavior still needs multiplayer verification. Confirm
+by comparing relationship/customer/region state before and after a sample with
+both peers running the fork; weaken this explanation if markers/unlocks remain
+missing with clean logs and successfully delivered relationship state.
+The fork does not grant customers/regions or change progression requirements.
+
+Final validation for this patch set:
+- Police recovery: 28 MONO-alias cases and 30 IL2CPP-alias cases pass, including
+  the Il2CppInterop native exception wrapper observed in the live server logs.
+- Reporting callback: real Harmony interception checks pass for all four
+  server/client and MONO/IL2CPP define combinations (6 or 7 checks per run).
+- Full Il2cpp_Server and Il2cpp_Client builds succeed with zero warnings/errors
+  against the installed stable game assemblies; full Mono builds were not run.
