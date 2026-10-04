@@ -121,6 +121,20 @@ Run("invalid target during activation is cleaned up even for a non-null-referenc
     InvokePatch(typeof(NpcBehaviourUpdatePatches), "Prefix", Controller(pursuit));
     Equal(false, pursuit.Enabled);
 });
+#if IL2CPP
+Run("native IL2CPP null-reference activation failure is disabled", () =>
+{
+    PursuitBehaviour pursuit = new() { TargetPlayer = new(), OnActivate = () => throw new Il2CppInterop.Runtime.Il2CppException("System.NullReferenceException: Object reference not set to an instance of an object.") };
+    InvokePatch(typeof(NpcBehaviourUpdatePatches), "Prefix", Controller(pursuit));
+    Equal(false, pursuit.Enabled);
+});
+Run("other native IL2CPP activation exceptions propagate", () =>
+{
+    PursuitBehaviour pursuit = new() { TargetPlayer = new(), OnActivate = () => throw new Il2CppInterop.Runtime.Il2CppException("System.InvalidOperationException: unexpected") };
+    Throws<Il2CppInterop.Runtime.Il2CppException>(() => InvokePatch(typeof(NpcBehaviourUpdatePatches), "Prefix", Controller(pursuit)));
+    Equal(0, pursuit.DisableCalls);
+});
+#endif
 Run("debug mode leaves the original update enabled", () =>
 {
     NPCBehaviour controller = Controller(new PursuitBehaviour());

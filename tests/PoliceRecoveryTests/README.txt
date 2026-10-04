@@ -28,3 +28,8 @@ In-game checks on an isolated saved world:
 
 Only server code changes in this patch set. Existing stand-up animation caching
 is unchanged because its role in the observed sliding remains unproven.
+
+The IL2CPP alias run also checks the native Il2CppException wrapper used in the
+captured server errors: a formatted System.NullReferenceException during police
+activation is handled, while other native exception types still propagate.
+Current case counts: MONO=28; IL2CPP=30.

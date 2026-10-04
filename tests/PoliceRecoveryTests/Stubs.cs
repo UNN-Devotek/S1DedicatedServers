@@ -283,3 +283,12 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
         public class Snapshot { public ServerPressureLevel PressureLevel; }
     }
 }
+#if IL2CPP
+namespace Il2CppInterop.Runtime
+{
+    public class Il2CppException : Exception
+    {
+        public Il2CppException(string message) : base(message) { }
+    }
+}
+#endif

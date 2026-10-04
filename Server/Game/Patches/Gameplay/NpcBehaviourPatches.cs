@@ -92,7 +92,7 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
             {
                 bool stalePoliceTarget = DedicatedPolicePursuitAuthority.HasInvalidPoliceTarget(processingBehaviour);
                 bool failedPoliceTransition = stage != "update"
-                    && ex is NullReferenceException
+                    && IsNullReferenceFailure(ex)
                     && DedicatedPolicePursuitAuthority.IsPoliceBehaviour(processingBehaviour);
                 if (!__instance.IsServerInitialized || (!stalePoliceTarget && !failedPoliceTransition))
                 {
@@ -117,6 +117,23 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
             }
 
             return false;
+        }
+
+        private static bool IsNullReferenceFailure(Exception exception)
+        {
+            if (exception is NullReferenceException)
+            {
+                return true;
+            }
+
+#if IL2CPP
+            // Native game exceptions are wrapped by Il2CppInterop rather than mapped to CLR types.
+            // Match the formatted native type, not arbitrary messages containing the word "null".
+            return exception is Il2CppInterop.Runtime.Il2CppException
+                && exception.Message?.StartsWith("System.NullReferenceException:", StringComparison.Ordinal) == true;
+#else
+            return false;
+#endif
         }
     }
 }
