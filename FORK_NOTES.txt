@@ -1,0 +1,36 @@
+UNN-Devotek Schedule I dedicated server fork
+
+Upstream: https://github.com/ifBars/S1DedicatedServers
+Base: master 488b25b (gameplay patches match v1.1.0)
+Police recovery branch: fix/police-recovery
+
+Changes:
+- Check invalid foot pursuit, vehicle pursuit, and body-search targets before
+  activation/resume and before normal behaviour updates.
+- Disable the concrete invalid behaviour even when its target is null or ghost.
+- Include pause/activate/resume in targeted police recovery handling. Stale
+  targets and null-reference failures during police transitions are cleaned up;
+  unrelated exceptions and valid-target update failures still propagate.
+- Keep cleanup independent of shared diagnostic throttling.
+- Validate root, hip, bone transforms and matrices before the eight-second
+  ragdoll fallback request. Report invalid poses before/after it, and report
+  requests without prematurely declaring recovery complete on every client.
+
+Validation:
+- Regression harness uses production patch files with managed game doubles;
+  run both runtime aliases as described in tests/PoliceRecoveryTests/README.txt.
+- IL2CPP server and client build against stable game build 24705572 (0.4.6f13).
+- The shared upright sliding still requires multiplayer runtime verification.
+- Actual Mono game assemblies are needed for full Mono builds.
+
+Local setup:
+- Copy local.build.props.example to local.build.props and set game paths.
+- Set AutomateLocalDeployment=false when building without deployment.
+- Generated IL2CPP wrappers can use upstream's compatibility build target:
+  dotnet build DedicatedServerMod.csproj -c Il2cpp_Server -p:CustomAfterMicrosoftCommonTargets=.github/ci/il2cpp-publicizer.targets
+  dotnet build DedicatedServerMod.csproj -c Il2cpp_Client -p:CustomAfterMicrosoftCommonTargets=.github/ci/il2cpp-publicizer.targets
+- Binaries are written to bin/<configuration>/<target framework>/.
+- Game assemblies, paths, secrets and build artifacts are not committed.
+
+Live hosting is separate from this checkout. These changes have not been
+installed on the live server. Its four-hour save/restart schedule remains.

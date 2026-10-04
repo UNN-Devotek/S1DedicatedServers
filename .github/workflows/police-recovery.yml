@@ -1,0 +1,35 @@
+name: Police recovery regression checks
+
+on:
+  push:
+    paths:
+      - 'Server/Game/Patches/Gameplay/NpcBehaviourPatches.cs'
+      - 'Server/Game/Patches/Gameplay/PolicePursuitPatches.cs'
+      - 'Server/Game/Patches/Gameplay/NpcRagdollRecoveryPatches.cs'
+      - 'tests/PoliceRecoveryTests/**'
+      - '.github/workflows/police-recovery.yml'
+  pull_request:
+    paths:
+      - 'Server/Game/Patches/Gameplay/NpcBehaviourPatches.cs'
+      - 'Server/Game/Patches/Gameplay/PolicePursuitPatches.cs'
+      - 'Server/Game/Patches/Gameplay/NpcRagdollRecoveryPatches.cs'
+      - 'tests/PoliceRecoveryTests/**'
+      - '.github/workflows/police-recovery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runtime: [MONO, IL2CPP]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Exercise police recovery patches
+        run: dotnet run --project tests/PoliceRecoveryTests -p:RuntimeDefine=${{ matrix.runtime }}

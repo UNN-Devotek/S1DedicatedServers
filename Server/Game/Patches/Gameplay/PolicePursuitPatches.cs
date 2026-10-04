@@ -6,6 +6,8 @@ using System.Reflection;
 using UnityEngine;
 #if IL2CPP
 using InstanceFinderType = Il2CppFishNet.InstanceFinder;
+using BehaviourType = Il2CppScheduleOne.NPCs.Behaviour.Behaviour;
+using BodySearchBehaviourType = Il2CppScheduleOne.NPCs.Behaviour.BodySearchBehaviour;
 using CombatBehaviourType = Il2CppScheduleOne.Combat.CombatBehaviour;
 using DriveFlagsType = Il2CppScheduleOne.Vehicles.AI.DriveFlags;
 using PoliceStationType = Il2CppScheduleOne.Map.PoliceStation;
@@ -17,6 +19,8 @@ using VehiclePursuitBehaviourType = Il2CppScheduleOne.NPCs.Behaviour.VehiclePurs
 using VisionEventReceiptType = Il2CppScheduleOne.Vision.VisionEventReceipt;
 #else
 using FishNet;
+using BehaviourType = ScheduleOne.NPCs.Behaviour.Behaviour;
+using BodySearchBehaviourType = ScheduleOne.NPCs.Behaviour.BodySearchBehaviour;
 using CombatBehaviourType = ScheduleOne.Combat.CombatBehaviour;
 using DriveFlagsType = ScheduleOne.Vehicles.AI.DriveFlags;
 using PoliceStationType = ScheduleOne.Map.PoliceStation;
@@ -88,10 +92,65 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
             }
         }
 
+        internal static bool IsPoliceBehaviour(BehaviourType behaviour)
+        {
+            return behaviour is PursuitBehaviourType
+                || behaviour is VehiclePursuitBehaviourType
+                || behaviour is BodySearchBehaviourType;
+        }
+
+        internal static bool HasInvalidPoliceTarget(BehaviourType behaviour)
+        {
+            if (behaviour is PursuitBehaviourType pursuit)
+            {
+                return IsInvalidOrDisconnectedTarget(pursuit.TargetPlayer);
+            }
+
+            if (behaviour is VehiclePursuitBehaviourType vehiclePursuit)
+            {
+                return IsInvalidOrDisconnectedTarget(vehiclePursuit.Target);
+            }
+
+            // Typed access preserves null targets; reflection's "value is Player" rejected them.
+            return behaviour is BodySearchBehaviourType bodySearch
+                && IsInvalidOrDisconnectedTarget(bodySearch.TargetPlayer);
+        }
+
+        internal static bool TryClearInvalidPoliceBehaviour(BehaviourType behaviour)
+        {
+            if (!DedicatedServerPatchCommon.IsDedicatedHeadlessServer()
+                || !InstanceFinderType.IsServer
+                || !HasInvalidPoliceTarget(behaviour))
+            {
+                return false;
+            }
+
+            TryDisablePoliceBehaviour(behaviour);
+            return true;
+        }
+
+        internal static bool TryDisablePoliceBehaviour(BehaviourType behaviour)
+        {
+            if (!DedicatedServerPatchCommon.IsDedicatedHeadlessServer()
+                || !InstanceFinderType.IsServer
+                || !IsPoliceBehaviour(behaviour))
+            {
+                return false;
+            }
+
+            if (!behaviour.Enabled && !behaviour.Active)
+            {
+                return true;
+            }
+
+            return TryDisable(() => behaviour.Disable_Networked(null));
+        }
+
         internal static void ClearPoliceTargeting(PlayerType player)
         {
             if (player == null || DedicatedServerPatchCommon.IsGhostOrLoopbackPlayer(player))
             {
+                ClearInvalidPoliceTargets();
                 return;
             }
 
@@ -129,29 +188,9 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
 
             ForEachOfficer(officer =>
             {
-                PlayerType bodySearchTarget = officer.BodySearchBehaviour?.TargetPlayer;
-                if (officer.BodySearchBehaviour != null
-                    && officer.BodySearchBehaviour.Enabled
-                    && IsInvalidOrDisconnectedTarget(bodySearchTarget))
-                {
-                    TryDisable(() => officer.BodySearchBehaviour.Disable_Networked(null));
-                }
-
-                PlayerType pursuitTarget = officer.PursuitBehaviour?.TargetPlayer;
-                if (officer.PursuitBehaviour != null
-                    && officer.PursuitBehaviour.Enabled
-                    && IsInvalidOrDisconnectedTarget(pursuitTarget))
-                {
-                    TryDisable(() => officer.PursuitBehaviour.Disable_Networked(null));
-                }
-
-                PlayerType vehicleTarget = officer.VehiclePursuitBehaviour?.Target;
-                if (officer.VehiclePursuitBehaviour != null
-                    && officer.VehiclePursuitBehaviour.Enabled
-                    && IsInvalidOrDisconnectedTarget(vehicleTarget))
-                {
-                    TryDisable(() => officer.VehiclePursuitBehaviour.Disable_Networked(null));
-                }
+                TryClearInvalidPoliceBehaviour(officer.BodySearchBehaviour);
+                TryClearInvalidPoliceBehaviour(officer.PursuitBehaviour);
+                TryClearInvalidPoliceBehaviour(officer.VehiclePursuitBehaviour);
             });
         }
 
@@ -274,15 +313,17 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
             }
         }
 
-        private static void TryDisable(Action disable)
+        private static bool TryDisable(Action disable)
         {
             try
             {
                 disable?.Invoke();
+                return true;
             }
             catch (Exception ex)
             {
-                DebugLog.Warning($"Failed to clear stale police target: {ex.Message}");
+                DebugLog.Warning("Failed to clear police behaviour.", ex);
+                return false;
             }
         }
     }
@@ -309,7 +350,7 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
                 return true;
             }
 
-            DedicatedPolicePursuitAuthority.ClearPoliceTargeting(pursuit.TargetPlayer);
+            DedicatedPolicePursuitAuthority.TryClearInvalidPoliceBehaviour(pursuit);
             return false;
         }
 
@@ -362,7 +403,7 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
                 return true;
             }
 
-            DedicatedPolicePursuitAuthority.ClearPoliceTargeting(pursuit.TargetPlayer);
+            DedicatedPolicePursuitAuthority.TryClearInvalidPoliceBehaviour(pursuit);
             return false;
         }
     }
@@ -386,7 +427,7 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
                 return true;
             }
 
-            DedicatedPolicePursuitAuthority.ClearPoliceTargeting(__instance.TargetPlayer);
+            DedicatedPolicePursuitAuthority.TryClearInvalidPoliceBehaviour(__instance);
             return false;
         }
     }

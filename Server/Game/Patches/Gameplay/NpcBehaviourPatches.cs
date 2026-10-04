@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using HarmonyLib;
 using DedicatedServerMod.Utils;
 using UnityEngine;
@@ -7,16 +6,10 @@ using UnityEngine;
 using BehaviourType = Il2CppScheduleOne.NPCs.Behaviour.Behaviour;
 using BehaviourListType = Il2CppSystem.Collections.Generic.List<Il2CppScheduleOne.NPCs.Behaviour.Behaviour>;
 using NpcBehaviourType = Il2CppScheduleOne.NPCs.Behaviour.NPCBehaviour;
-using PlayerType = Il2CppScheduleOne.PlayerScripts.Player;
-using PursuitBehaviourType = Il2CppScheduleOne.NPCs.Behaviour.PursuitBehaviour;
-using VehiclePursuitBehaviourType = Il2CppScheduleOne.NPCs.Behaviour.VehiclePursuitBehaviour;
 #else
 using BehaviourType = ScheduleOne.NPCs.Behaviour.Behaviour;
 using BehaviourListType = System.Collections.Generic.List<ScheduleOne.NPCs.Behaviour.Behaviour>;
 using NpcBehaviourType = ScheduleOne.NPCs.Behaviour.NPCBehaviour;
-using PlayerType = ScheduleOne.PlayerScripts.Player;
-using PursuitBehaviourType = ScheduleOne.NPCs.Behaviour.PursuitBehaviour;
-using VehiclePursuitBehaviourType = ScheduleOne.NPCs.Behaviour.VehiclePursuitBehaviour;
 #endif
 
 namespace DedicatedServerMod.Server.Game.Patches.Gameplay
@@ -24,16 +17,16 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
     /// <summary>
     /// Removes per-frame LINQ allocation and reflection overhead from NPC behavior selection on dedicated headless servers.
     /// Uses the Krafs-publicized <c>enabledBehaviours</c> field directly so the hot path stays out of <see cref="Utils.SafeReflection"/>.
-    /// Also throttles repeated stale police-behaviour exceptions behind one shared cooldown so disconnect cleanup can recover
-    /// invalid pursuit targets without sweeping every NPC instance or flooding logs every frame.
+    /// Validates police targets before transitions and releases police behaviours whose transition fails with a null reference.
+    /// Cleanup runs for each affected behaviour; only repeated diagnostics share a cooldown.
     /// </summary>
     [HarmonyPatch(typeof(NpcBehaviourType), "Update")]
     internal static class NpcBehaviourUpdatePatches
     {
-        private const float STALE_BEHAVIOUR_CLEANUP_COOLDOWN_SECONDS = 3f;
+        private const float RECOVERY_WARNING_COOLDOWN_SECONDS = 3f;
 
-        private static float _lastStaleBehaviourCleanupTime = -STALE_BEHAVIOUR_CLEANUP_COOLDOWN_SECONDS;
-        private static int _suppressedStaleBehaviourExceptions;
+        private static float _lastRecoveryWarningTime = -RECOVERY_WARNING_COOLDOWN_SECONDS;
+        private static int _recoveryExceptionCount;
 
         private static bool Prefix(NpcBehaviourType __instance)
         {
@@ -42,118 +35,85 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
                 return true;
             }
 
-            if (__instance.IsServerInitialized)
+            BehaviourType processingBehaviour = null;
+            string stage = "update";
+            try
             {
-                BehaviourListType enabledBehaviours = __instance.enabledBehaviours;
-                BehaviourType enabledBehaviour = enabledBehaviours != null && enabledBehaviours.Count > 0
-                    ? enabledBehaviours[0]
-                    : null;
-                if (enabledBehaviour != __instance.activeBehaviour)
+                if (__instance.IsServerInitialized)
                 {
-                    if (__instance.activeBehaviour != null)
-                    {
-                        __instance.activeBehaviour.Pause_Server();
-                    }
+                    BehaviourListType enabledBehaviours = __instance.enabledBehaviours;
+                    BehaviourType enabledBehaviour = enabledBehaviours != null && enabledBehaviours.Count > 0
+                        ? enabledBehaviours[0]
+                        : null;
 
-                    if (enabledBehaviour != null)
-                    {
-                        if (enabledBehaviour.Started)
-                        {
-                            enabledBehaviour.Resume_Server();
-                        }
-                        else
-                        {
-                            enabledBehaviour.Activate_Server(null);
-                        }
-                    }
-                }
-            }
-
-            if (__instance.activeBehaviour != null && __instance.activeBehaviour.Active)
-            {
-                try
-                {
-                    __instance.activeBehaviour.BehaviourUpdate();
-                }
-                catch (Exception ex)
-                {
-                    if (!ShouldRecoverFromStalePoliceTarget(__instance.activeBehaviour))
-                    {
-                        throw;
-                    }
-
-                    _suppressedStaleBehaviourExceptions++;
-                    float now = Time.realtimeSinceStartup;
-                    if (now - _lastStaleBehaviourCleanupTime < STALE_BEHAVIOUR_CLEANUP_COOLDOWN_SECONDS)
+                    // Do not pause the current behaviour for a pursuit which cannot safely start.
+                    if (DedicatedPolicePursuitAuthority.TryClearInvalidPoliceBehaviour(enabledBehaviour))
                     {
                         return false;
                     }
 
-                    _lastStaleBehaviourCleanupTime = now;
-                    int suppressedCount = _suppressedStaleBehaviourExceptions;
-                    _suppressedStaleBehaviourExceptions = 0;
+                    if (enabledBehaviour != __instance.activeBehaviour)
+                    {
+                        processingBehaviour = __instance.activeBehaviour;
+                        stage = "pause";
+                        if (processingBehaviour != null)
+                        {
+                            processingBehaviour.Pause_Server();
+                        }
 
-                    DedicatedPolicePursuitAuthority.ClearInvalidPoliceTargets();
-                    DebugLog.Warning($"Suppressed {suppressedCount} stale NPC behaviour update exception(s) after dedicated target cleanup: {ex.Message}");
+                        processingBehaviour = enabledBehaviour;
+                        if (enabledBehaviour != null)
+                        {
+                            if (enabledBehaviour.Started)
+                            {
+                                stage = "resume";
+                                enabledBehaviour.Resume_Server();
+                            }
+                            else
+                            {
+                                stage = "activate";
+                                enabledBehaviour.Activate_Server(null);
+                            }
+                        }
+                    }
                 }
-            }
 
-            return false;
-        }
-
-        private static bool ShouldRecoverFromStalePoliceTarget(BehaviourType behaviour)
-        {
-            if (behaviour == null)
-            {
-                return false;
-            }
-
-            try
-            {
-                if (behaviour is PursuitBehaviourType pursuit)
+                stage = "update";
+                processingBehaviour = __instance.activeBehaviour;
+                if (processingBehaviour != null && processingBehaviour.Active)
                 {
-                    return DedicatedPolicePursuitAuthority.IsInvalidOrDisconnectedTarget(pursuit.TargetPlayer);
+                    if (!DedicatedPolicePursuitAuthority.TryClearInvalidPoliceBehaviour(processingBehaviour))
+                    {
+                        processingBehaviour.BehaviourUpdate();
+                    }
                 }
-
-                if (behaviour is VehiclePursuitBehaviourType vehiclePursuit)
+            }
+            catch (Exception ex)
+            {
+                bool stalePoliceTarget = DedicatedPolicePursuitAuthority.HasInvalidPoliceTarget(processingBehaviour);
+                bool failedPoliceTransition = stage != "update"
+                    && ex is NullReferenceException
+                    && DedicatedPolicePursuitAuthority.IsPoliceBehaviour(processingBehaviour);
+                if (!__instance.IsServerInitialized || (!stalePoliceTarget && !failedPoliceTransition))
                 {
-                    return DedicatedPolicePursuitAuthority.IsInvalidOrDisconnectedTarget(vehiclePursuit.Target);
+                    throw;
                 }
 
-                string typeName = behaviour.GetType()?.FullName ?? string.Empty;
-                if (typeName.IndexOf("BodySearchBehaviour", StringComparison.Ordinal) < 0)
+                // Always release this behaviour, even while another officer's diagnostic is throttled.
+                bool disabled = DedicatedPolicePursuitAuthority.TryDisablePoliceBehaviour(processingBehaviour);
+                _recoveryExceptionCount++;
+                float now = Time.realtimeSinceStartup;
+                if (now - _lastRecoveryWarningTime >= RECOVERY_WARNING_COOLDOWN_SECONDS)
                 {
-                    return false;
+                    _lastRecoveryWarningTime = now;
+                    int exceptionCount = _recoveryExceptionCount;
+                    _recoveryExceptionCount = 0;
+                    DebugLog.Warning(
+                        $"Police behaviour recovery ({exceptionCount} exception(s)): " +
+                        $"NPC='{processingBehaviour?.Npc?.FullName ?? "unknown"}', " +
+                        $"behaviour={processingBehaviour?.GetType().Name}, stage={stage}, " +
+                        $"invalidTarget={stalePoliceTarget}, disabled={disabled}.", ex);
                 }
-
-                return TryGetPlayerTarget(behaviour, out PlayerType target)
-                    && DedicatedPolicePursuitAuthority.IsInvalidOrDisconnectedTarget(target);
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private static bool TryGetPlayerTarget(BehaviourType behaviour, out PlayerType target)
-        {
-            target = null;
-
-            Type behaviourType = behaviour.GetType();
-            PropertyInfo property = AccessTools.Property(behaviourType, "TargetPlayer");
-            object value = property?.GetValue(behaviour);
-            if (value is PlayerType propertyTarget)
-            {
-                target = propertyTarget;
-                return true;
-            }
-
-            FieldInfo field = AccessTools.Field(behaviourType, "TargetPlayer");
-            value = field?.GetValue(behaviour);
-            if (value is PlayerType fieldTarget)
-            {
-                target = fieldTarget;
-                return true;
             }
 
             return false;
