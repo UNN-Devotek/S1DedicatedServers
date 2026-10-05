@@ -8,14 +8,13 @@ on:
   workflow_dispatch:
     inputs:
       assembly_branch:
-        description: "Assembly branch to use (main/master or beta)"
+        description: "Public Mono assembly branch"
         required: false
         default: "main"
         type: choice
         options:
           - main
           - master
-          - beta
 
 permissions:
   contents: read
@@ -64,7 +63,7 @@ jobs:
           fi
 
           case "$requested_branch" in
-            main|master|beta)
+            main|master)
               ;;
             *)
               echo "Unsupported assembly branch: $requested_branch"
@@ -72,11 +71,7 @@ jobs:
               ;;
           esac
 
-          if [[ "$requested_branch" == "beta" ]]; then
-            game_branch="beta"
-          else
-            game_branch="main"
-          fi
+          game_branch="main"
 
           echo "game_branch=$game_branch" >> "$GITHUB_OUTPUT"
           echo "Using Mono assemblies from $game_branch (requested: $requested_branch)"

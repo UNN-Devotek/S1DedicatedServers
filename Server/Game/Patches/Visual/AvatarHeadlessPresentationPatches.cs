@@ -55,14 +55,22 @@ namespace DedicatedServerMod.Server.Game.Patches.Visual
                 return;
             }
 
+#if GAME_BETA
+            __instance.CancelInvoke("RefreshAnimatorActive");
+#else
             __instance.CancelInvoke("UpdateAnimationActive");
+#endif
         }
     }
 
     /// <summary>
     /// Skips avatar animation culling work on dedicated headless servers.
     /// </summary>
+#if GAME_BETA
+    [HarmonyPatch(typeof(AvatarAnimationType), "RefreshAnimatorActive")]
+#else
     [HarmonyPatch(typeof(AvatarAnimationType), "UpdateAnimationActive")]
+#endif
     internal static class AvatarAnimationUpdateAnimationActivePatches
     {
         private static bool Prefix()

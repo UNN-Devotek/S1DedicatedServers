@@ -1,3 +1,12 @@
+#if GAME_BETA && IL2CPP
+using SleepOwnerType = Il2CppScheduleOne.GameTime.SleepController;
+#elif GAME_BETA
+using SleepOwnerType = ScheduleOne.GameTime.SleepController;
+#elif IL2CPP
+using SleepOwnerType = Il2CppScheduleOne.GameTime.TimeManager;
+#else
+using SleepOwnerType = ScheduleOne.GameTime.TimeManager;
+#endif
 using System.Reflection;
 using DedicatedServerMod.Server.Game.Patches.Console;
 using DedicatedServerMod.Server.Game.Patches.Gameplay;
@@ -168,7 +177,7 @@ namespace DedicatedServerMod.Server.Game
                 MethodInfo target = typeof(PlayerType).GetMethods(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance)
                     .FirstOrDefault(mi =>
                     {
-                        if (!mi.Name.StartsWith("RpcLogic___ReceivePlayerNameData_", StringComparison.Ordinal))
+                        if (!(mi.Name.StartsWith("RpcLogic___ReceivePlayerNameData_", StringComparison.Ordinal) || mi.Name.StartsWith("RpcLogic___SetPlayerNameAndId_Client_", StringComparison.Ordinal)))
                         {
                             return false;
                         }
@@ -228,7 +237,7 @@ namespace DedicatedServerMod.Server.Game
                 MethodInfo target = typeof(PlayerType).GetMethods(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance)
                     .FirstOrDefault(mi =>
                     {
-                        if (!mi.Name.StartsWith("RpcLogic___SendPlayerNameData_", StringComparison.Ordinal))
+                        if (!(mi.Name.StartsWith("RpcLogic___SendPlayerNameData_", StringComparison.Ordinal) || mi.Name.StartsWith("RpcLogic___SetPlayerNameAndId_Server_", StringComparison.Ordinal)))
                         {
                             return false;
                         }
@@ -287,7 +296,7 @@ namespace DedicatedServerMod.Server.Game
         {
             try
             {
-                MethodInfo target = typeof(TimeManagerType).GetMethods(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance)
+                MethodInfo target = typeof(SleepOwnerType).GetMethods(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance)
                     .FirstOrDefault(mi =>
                         mi.Name.StartsWith("RpcLogic___StartSleep_", StringComparison.Ordinal)
                         && mi.GetParameters().Length == 0);

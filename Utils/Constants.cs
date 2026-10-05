@@ -272,6 +272,11 @@ namespace DedicatedServerMod.Utils
             public const string ChatMessage = "chat_message";
 
             /// <summary>
+            /// Transient server announcement (server -> client).
+            /// </summary>
+            public const string ServerAnnouncement = "server_announcement";
+
+            /// <summary>
             /// SteamNetworkLib dedicated compatibility register request (client -> server).
             /// </summary>
             public const string SnlDedicatedRegister = "snl_dedicated_register";
@@ -587,4 +592,3 @@ namespace DedicatedServerMod.Utils
         #endregion
     }
 }
-

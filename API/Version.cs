@@ -15,7 +15,7 @@ namespace DedicatedServerMod.API
         /// <summary>
         /// The mod version following semantic versioning, including a prerelease suffix when applicable.
         /// </summary>
-        public const string ModVersion = "1.1.0";
+        public const string ModVersion = "1.1.0-unn.1";
 
         /// <summary>
         /// The major version number for breaking change tracking.

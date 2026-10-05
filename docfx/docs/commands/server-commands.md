@@ -4,6 +4,7 @@ These commands affect server state directly. The defaults listed below assume th
 
 - `help`: display command help. Default group: `default`
 - `serverinfo`: display server status. Default group: `support`
+- `broadcast <message>`: show an audible ten-second server notification to connected, authenticated players. Default group: `administrator` through `server.broadcast`
 - `save`: trigger a manual save. Default group: `administrator`
 - `reloadconfig`: reload `server_config.toml`. Default group: `administrator`
 - `reloadpermissions`: reload `permissions.toml`. Default group: `operator`

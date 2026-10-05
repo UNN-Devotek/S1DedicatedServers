@@ -1,634 +1,108 @@
-name: Auto Release on Version Change
+name: Publish tagged public or beta release
 
 on:
   push:
-    branches:
-      - main
-      - master
-    paths:
-      - "API/Version.cs"
+    tags: ['public-v*', 'beta-v*']
   workflow_dispatch:
     inputs:
-      version:
-        description: "Version to release (leave empty to use API/Version.cs)"
-        required: false
+      tag:
+        description: 'Existing main tag, e.g. public-v1.1.0-unn.1 or beta-v1.1.0-unn.1'
+        required: true
         type: string
-      assembly_branch:
-        description: "Assembly branch to use (main/master or beta)"
-        required: false
-        default: "main"
-        type: choice
-        options:
-          - main
-          - master
-          - beta
-      publish_nexus:
-        description: "Upload stable release packages to Nexus Mods"
-        required: false
-        default: true
-        type: boolean
 
-env:
-  NEXUSMODS_API_KEY: ${{ secrets.NEXUSMODS_API_KEY }}
-  NEXUSMODS_MOD_ID: "2169"
-  NEXUSMODS_MONO_SERVER_FILE_GROUP_ID: "7516787"
-  NEXUSMODS_MONO_CLIENT_FILE_GROUP_ID: "7516781"
-  NEXUSMODS_IL2CPP_SERVER_FILE_GROUP_ID: "7516778"
-  NEXUSMODS_IL2CPP_CLIENT_FILE_GROUP_ID: "7516772"
-  RELEASE_DESCRIPTION: Headless dedicated servers for Schedule I with admin commands, save/load support, optional web panel, and client companion support.
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
-  check-version:
+  metadata:
     runs-on: ubuntu-latest
     outputs:
-      version-changed: ${{ steps.check.outputs.changed }}
-      new-version: ${{ steps.check.outputs.version }}
-      prerelease: ${{ steps.check.outputs.prerelease }}
-      make-latest: ${{ steps.check.outputs.make_latest }}
-      release-name: ${{ steps.check.outputs.release_name }}
-
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+      channel: ${{ steps.release.outputs.channel }}
+      branch: ${{ steps.release.outputs.branch }}
+      commit: ${{ steps.release.outputs.commit }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          fetch-tags: true
-
-      - name: Check if version needs release
-        id: check
+          ref: ${{ inputs.tag || github.ref_name }}
+      - id: release
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          MANUAL_VERSION: ${{ inputs.version }}
-        shell: bash
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
-          set -euo pipefail
-
-          git fetch --tags
-
-          source_version=$(grep -oP 'public const string ModVersion = "\K[^"]+' API/Version.cs | head -n 1)
-          if [[ -z "$source_version" ]]; then
-            echo "Failed to determine version from API/Version.cs" >&2
-            exit 1
-          fi
-
-          if [[ ! "$source_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
-            echo "Source version '$source_version' does not match the expected release format" >&2
-            exit 1
-          fi
-
-          if [[ "$EVENT_NAME" == "workflow_dispatch" ]] && [[ -n "$MANUAL_VERSION" ]]; then
-            if [[ "$MANUAL_VERSION" != "$source_version" ]]; then
-              echo "Manual version '$MANUAL_VERSION' does not match API/Version.cs version '$source_version'" >&2
-              exit 1
-            fi
-
-            current_version="$MANUAL_VERSION"
-            echo "Manual trigger with version: $current_version"
-          else
-            current_version="$source_version"
-            echo "Current version from API/Version.cs: $current_version"
-          fi
-
-          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            echo "Manual trigger requested; publishing or refreshing v$current_version"
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          elif git rev-parse "v$current_version" >/dev/null 2>&1; then
-            echo "Tag v$current_version already exists, skipping release"
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "Tag v$current_version does not exist, creating release"
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
-
-          echo "version=$current_version" >> "$GITHUB_OUTPUT"
-
-          echo "release_name=DedicatedServerMod v$current_version" >> "$GITHUB_OUTPUT"
-
-          if [[ "$current_version" == *-* ]]; then
-            echo "prerelease=true" >> "$GITHUB_OUTPUT"
-            echo "make_latest=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "prerelease=false" >> "$GITHUB_OUTPUT"
-            echo "make_latest=true" >> "$GITHUB_OUTPUT"
-          fi
-
-  create-release:
-    needs: check-version
-    if: needs.check-version.outputs.version-changed == 'true'
-    runs-on: windows-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout DedicatedServerMod
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Pin .NET SDK for CI
-        shell: bash
-        run: |
-          cat > global.json << 'EOF'
-          {
-            "sdk": {
-              "version": "8.0.100",
-              "rollForward": "latestFeature"
-            }
-          }
-          EOF
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "8.0.x"
-
-      - name: Determine Assembly Branch
-        id: assembly-branch
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          REQUESTED_ASSEMBLY_BRANCH: ${{ inputs.assembly_branch }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [[ "$EVENT_NAME" == "workflow_dispatch" ]] && [[ -n "$REQUESTED_ASSEMBLY_BRANCH" ]]; then
-            requested_branch="$REQUESTED_ASSEMBLY_BRANCH"
-          else
-            requested_branch="master"
-          fi
-
-          case "$requested_branch" in
-            main|master|beta)
-              ;;
-            *)
-              echo "Unsupported assembly branch: $requested_branch"
-              exit 1
-              ;;
-          esac
-
-          if [[ "$requested_branch" == "beta" ]]; then
-            mono_branch="beta"
-            il2cpp_branch="beta"
-          else
-            mono_branch="main"
-            il2cpp_branch="main"
-          fi
-
-          echo "mono_branch=$mono_branch" >> "$GITHUB_OUTPUT"
-          echo "il2cpp_branch=$il2cpp_branch" >> "$GITHUB_OUTPUT"
-          echo "Using Mono assemblies from $mono_branch and IL2CPP assemblies from $il2cpp_branch (requested: $requested_branch)"
-
-      - name: Checkout Mono Game Assemblies
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ secrets.GAME_ASSEMBLIES_REPO }}
-          token: ${{ secrets.GAME_ASSEMBLIES_TOKEN }}
-          ref: ${{ steps.assembly-branch.outputs.mono_branch }}
-          path: game-assemblies
-          fetch-depth: 1
-
-      - name: Checkout IL2CPP Game Assemblies
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ secrets.IL2CPP_ASSEMBLIES_REPO }}
-          token: ${{ secrets.IL2CPP_ASSEMBLIES_TOKEN }}
-          ref: ${{ steps.assembly-branch.outputs.il2cpp_branch }}
-          path: il2cpp-assemblies
-          fetch-depth: 1
-
-      - name: Verify Mono Assemblies
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          test -f "game-assemblies/Managed/Assembly-CSharp.dll"
-          test -f "game-assemblies/MelonLoader/MelonLoader.dll"
-
-      - name: Verify IL2CPP Assemblies
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          il2cppAssembliesSource=""
-          if [ -d "il2cpp-assemblies/MelonLoader/Il2CppAssemblies" ]; then
-            il2cppAssembliesSource="il2cpp-assemblies/MelonLoader/Il2CppAssemblies"
-          elif [ -d "il2cpp-assemblies/Il2CppAssemblies" ]; then
-            il2cppAssembliesSource="il2cpp-assemblies/Il2CppAssemblies"
-          fi
-
-          if [ -z "$il2cppAssembliesSource" ]; then
-            echo "IL2CPP assemblies directory not found in il2cpp-assemblies checkout" >&2
-            exit 1
-          fi
-
-          il2cppNet6Source=""
-          if [ -d "il2cpp-assemblies/MelonLoader/net6" ]; then
-            il2cppNet6Source="il2cpp-assemblies/MelonLoader/net6"
-          elif [ -d "il2cpp-assemblies/net6" ]; then
-            il2cppNet6Source="il2cpp-assemblies/net6"
-          fi
-
-          if [ -z "$il2cppNet6Source" ]; then
-            echo "IL2CPP net6 directory not found in il2cpp-assemblies checkout" >&2
-            exit 1
-          fi
-
-          test -f "$il2cppAssembliesSource/Assembly-CSharp.dll"
-          test -f "$il2cppNet6Source/MelonLoader.dll"
-
-      - name: Create Mono CI Build Properties
-        shell: bash
-        run: |
-          cat > ci.build.props << 'EOF'
-          <Project>
-              <PropertyGroup>
-                  <AutomateLocalDeployment>false</AutomateLocalDeployment>
-                  <MelonLoaderAssembliesPath>$(MSBuildThisFileDirectory)game-assemblies/MelonLoader</MelonLoaderAssembliesPath>
-                  <MonoAssembliesPath>$(MSBuildThisFileDirectory)game-assemblies/Managed</MonoAssembliesPath>
-              </PropertyGroup>
-          </Project>
-          EOF
-
-      - name: Restore Mono Dependencies
-        run: dotnet restore DedicatedServerMod.csproj -p:EffectiveConfiguration=Mono_Server
-
-      - name: Build Mono Server
-        run: dotnet build DedicatedServerMod.csproj --no-restore -c Mono_Server -v minimal
-
-      - name: Build Mono Client
-        run: dotnet build DedicatedServerMod.csproj --no-restore -c Mono_Client -v minimal
-
-      - name: Create IL2CPP CI Build Properties
-        shell: bash
-        run: |
-          cat > ci.build.props << 'EOF'
-          <Project>
-              <PropertyGroup>
-                  <AutomateLocalDeployment>false</AutomateLocalDeployment>
-                  <Il2CppGamePath>$(MSBuildThisFileDirectory)il2cpp-assemblies</Il2CppGamePath>
-              </PropertyGroup>
-          </Project>
-          EOF
-
-      - name: Configure Publicizer For IL2CPP
-        shell: bash
-        run: cp .github/ci/il2cpp-publicizer.targets Directory.Build.targets
-
-      - name: Remove Mono Assembly Trees Before IL2CPP Build
-        shell: bash
-        run: |
-          rm -rf game-assemblies ScheduleOneAssemblies
-
-      - name: Reset IL2CPP Restore State
-        shell: bash
-        run: |
-          rm -rf obj/Il2cpp_Server obj/Il2cpp_Client
-          rm -f obj/project.assets.json obj/*.nuget.g.props obj/*.nuget.g.targets
-
-      - name: Restore IL2CPP Dependencies
-        run: dotnet restore DedicatedServerMod.csproj -p:EffectiveConfiguration=Il2cpp_Server
-
-      - name: Build IL2CPP Server
-        run: dotnet build DedicatedServerMod.csproj --no-restore -c Il2cpp_Server -v minimal
-
-      - name: Build IL2CPP Client
-        run: dotnet build DedicatedServerMod.csproj --no-restore -c Il2cpp_Client -v minimal
-
-      - name: Remove Temporary IL2CPP Build Targets
-        if: always()
-        shell: bash
-        run: rm -f Directory.Build.targets
-
-      - name: Prepare Release Packages
-        env:
-          RELEASE_VERSION: ${{ needs.check-version.outputs.new-version }}
-        shell: pwsh
-        run: |
-          $version = $env:RELEASE_VERSION
-          $releaseRoot = Join-Path $PWD 'release'
-          $serverRoot = Join-Path $releaseRoot 'Server'
-          $clientRoot = Join-Path $releaseRoot 'Client'
-          $il2cppServerRoot = Join-Path $releaseRoot 'Il2cpp_Server'
-          $il2cppClientRoot = Join-Path $releaseRoot 'Il2cpp_Client'
-          $dockerRoot = Join-Path $releaseRoot 'Docker'
-
-          Remove-Item $releaseRoot -Recurse -Force -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Path $dockerRoot -Force | Out-Null
-
-          function Write-PackageTemplate {
-            param(
-              [Parameter(Mandatory)] [string] $Source,
-              [Parameter(Mandatory)] [string] $Destination,
-              [Parameter(Mandatory)] [hashtable] $Tokens
-            )
-
-            $content = [System.IO.File]::ReadAllText((Join-Path $PWD $Source))
-            foreach ($token in $Tokens.GetEnumerator()) {
-              $content = $content.Replace("{{$($token.Key)}}", [string] $token.Value)
-            }
-
-            if ($content -match '\{\{[A-Z_]+\}\}') {
-              throw "Unresolved package template token in $Source"
-            }
-
-            [System.IO.File]::WriteAllText(
-              $Destination,
-              $content,
-              [System.Text.UTF8Encoding]::new($false)
-            )
-          }
-
-          function Initialize-ModPackage {
-            param(
-              [Parameter(Mandatory)] [string] $Root,
-              [Parameter(Mandatory)] [string] $Runtime,
-              [Parameter(Mandatory)] [ValidateSet('Server', 'Client')] [string] $Side,
-              [Parameter(Mandatory)] [string] $DllSource,
-              [Parameter(Mandatory)] [string] $DllName
-            )
-
-            $modsRoot = Join-Path $Root 'Mods'
-            $fomodRoot = Join-Path $Root 'fomod'
-            New-Item -ItemType Directory -Path $modsRoot, $fomodRoot -Force | Out-Null
-
-            Copy-Item $DllSource (Join-Path $modsRoot $DllName)
-            Copy-Item 'marketing/src/assets/logo-icon.png' (Join-Path $Root 'icon.png')
-
-            if ($Side -eq 'Server') {
-              Copy-Item 'packaging/Server/start_server.bat' (Join-Path $Root 'start_server.bat')
-              $serverFile = '                <file source="start_server.bat" destination="" priority="0" />'
-            } else {
-              $serverFile = ''
-            }
-
-            $tokens = @{
-              VERSION = $version
-              RUNTIME = $Runtime
-              SIDE = $Side
-              DLL_NAME = $DllName
-              SERVER_FILE = $serverFile
-            }
-
-            Write-PackageTemplate "packaging/$Side/README.md" (Join-Path $Root 'README.md') $tokens
-            Write-PackageTemplate 'packaging/fomod/info.xml' (Join-Path $fomodRoot 'info.xml') $tokens
-            Write-PackageTemplate 'packaging/fomod/ModuleConfig.xml' (Join-Path $fomodRoot 'ModuleConfig.xml') $tokens
-          }
-
-          Initialize-ModPackage $serverRoot 'Mono' 'Server' 'bin/Mono_Server/netstandard2.1/DedicatedServerMod_Mono_Server.dll' 'DedicatedServerMod_Mono_Server.dll'
-          Initialize-ModPackage $clientRoot 'Mono' 'Client' 'bin/Mono_Client/netstandard2.1/DedicatedServerMod_Mono_Client.dll' 'DedicatedServerMod_Mono_Client.dll'
-          Initialize-ModPackage $il2cppServerRoot 'IL2CPP' 'Server' 'bin/Il2cpp_Server/net6.0/DedicatedServerMod_Il2cpp_Server.dll' 'DedicatedServerMod_Il2cpp_Server.dll'
-          Initialize-ModPackage $il2cppClientRoot 'IL2CPP' 'Client' 'bin/Il2cpp_Client/net6.0/DedicatedServerMod_Il2cpp_Client.dll' 'DedicatedServerMod_Il2cpp_Client.dll'
-
-          Copy-Item 'Docker/Dockerfile' (Join-Path $dockerRoot 'Dockerfile')
-          Copy-Item 'Docker/docker-compose.example.yml' (Join-Path $dockerRoot 'docker-compose.example.yml')
-          Copy-Item 'Docker/run.sh' (Join-Path $dockerRoot 'run.sh')
-          Copy-Item 'Docker/.dockerignore' (Join-Path $dockerRoot '.dockerignore')
-          Copy-Item 'Docker/README.md' (Join-Path $dockerRoot 'README.md')
-          Copy-Item 'bin/Mono_Server/netstandard2.1/DedicatedServerMod_Mono_Server.dll' (Join-Path $dockerRoot 'DedicatedServerMod_Mono_Server.dll')
-          Copy-Item 'bin/Il2cpp_Server/net6.0/DedicatedServerMod_Il2cpp_Server.dll' (Join-Path $dockerRoot 'DedicatedServerMod_Il2cpp_Server.dll')
-
-          $dockerShellScripts = Get-ChildItem -Path $dockerRoot -Filter '*.sh' -File
-          foreach ($script in $dockerShellScripts) {
-            $bytes = [System.IO.File]::ReadAllBytes($script.FullName)
-            if ($bytes -contains 13) {
-              throw "Docker shell script '$($script.Name)' contains CRLF line endings. Store Docker shell scripts with LF endings before packaging."
-            }
-          }
-
-          Compress-Archive -Path (Join-Path $serverRoot '*') -DestinationPath (Join-Path $releaseRoot 'Mono-Server.zip') -Force
-          Compress-Archive -Path (Join-Path $clientRoot '*') -DestinationPath (Join-Path $releaseRoot 'Mono-Client.zip') -Force
-          Compress-Archive -Path (Join-Path $il2cppServerRoot '*') -DestinationPath (Join-Path $releaseRoot 'Il2cpp_Server.zip') -Force
-          Compress-Archive -Path (Join-Path $il2cppClientRoot '*') -DestinationPath (Join-Path $releaseRoot 'Il2cpp_Client.zip') -Force
-          Compress-Archive -Path (Get-ChildItem -Path $dockerRoot -Force | ForEach-Object { $_.FullName }) -DestinationPath (Join-Path $releaseRoot 'Docker.zip') -Force
-
-          Add-Type -AssemblyName System.IO.Compression.FileSystem
-
-          function Assert-ZipEntries {
-            param(
-              [Parameter(Mandatory)] [string] $ZipPath,
-              [Parameter(Mandatory)] [string[]] $RequiredEntries
-            )
-
-            $archive = [System.IO.Compression.ZipFile]::OpenRead($ZipPath)
-            try {
-              $entries = @($archive.Entries | ForEach-Object { $_.FullName.Replace('\', '/') })
-              foreach ($entry in $RequiredEntries) {
-                if ($entry -notin $entries) {
-                  throw "Package '$ZipPath' is missing '$entry'"
-                }
-              }
-            } finally {
-              $archive.Dispose()
-            }
-          }
-
-          $commonEntries = @('README.md', 'icon.png', 'fomod/info.xml', 'fomod/ModuleConfig.xml')
-          Assert-ZipEntries (Join-Path $releaseRoot 'Mono-Server.zip') ($commonEntries + @('Mods/DedicatedServerMod_Mono_Server.dll', 'start_server.bat'))
-          Assert-ZipEntries (Join-Path $releaseRoot 'Mono-Client.zip') ($commonEntries + @('Mods/DedicatedServerMod_Mono_Client.dll'))
-          Assert-ZipEntries (Join-Path $releaseRoot 'Il2cpp_Server.zip') ($commonEntries + @('Mods/DedicatedServerMod_Il2cpp_Server.dll', 'start_server.bat'))
-          Assert-ZipEntries (Join-Path $releaseRoot 'Il2cpp_Client.zip') ($commonEntries + @('Mods/DedicatedServerMod_Il2cpp_Client.dll'))
-
-      - name: Upload Docker Image Context
-        uses: actions/upload-artifact@v4
-        with:
-          name: docker-image-context
-          path: release/Docker
-          if-no-files-found: error
-
-      - name: Generate Release Notes
-        env:
-          RELEASE_VERSION: ${{ needs.check-version.outputs.new-version }}
-        shell: pwsh
-        run: |
-          $version = $env:RELEASE_VERSION
-          $lastTag = (git for-each-ref refs/tags --sort=-creatordate --format='%(refname:strip=2)' | Select-Object -First 1)
-
-          if ($lastTag) {
-            $commits = git log "$lastTag..HEAD" --pretty=format:"- %s (%h)" --no-merges
-            $compareLine = "**Compare**: https://github.com/${{ github.repository }}/compare/$lastTag...v$version"
-          } else {
-            $commits = git log --pretty=format:"- %s (%h)" --no-merges -n 10
-            $compareLine = "**Repository**: https://github.com/${{ github.repository }}/releases"
-          }
-
-          $commitLines = @($commits | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-          if ($commitLines.Count -eq 0) {
-            $commitText = "- Packaging-only release"
-          } else {
-            $commitText = [string]::Join("`n", $commitLines)
-          }
-
-          $releaseNotes = @(
-            "## DedicatedServerMod v$version"
-            ""
-            "### Changes"
-            ""
-            $commitText
-            ""
-            $compareLine
-          ) -join "`n"
-
-          Set-Content 'release_notes.md' $releaseNotes
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ needs.check-version.outputs.new-version }}
-          name: ${{ needs.check-version.outputs.release-name }}
-          body_path: release_notes.md
-          draft: false
-          prerelease: ${{ needs.check-version.outputs.prerelease == 'true' }}
-          make_latest: ${{ needs.check-version.outputs.make_latest }}
-          files: |
-            release/Mono-Server.zip
-            release/Mono-Client.zip
-            release/Il2cpp_Server.zip
-            release/Il2cpp_Client.zip
-            release/Docker.zip
-
-      - name: Upload Mono Server to Nexus Mods
-        if: ${{ needs.check-version.outputs.prerelease != 'true' && (github.event_name != 'workflow_dispatch' || inputs.publish_nexus) && env.NEXUSMODS_API_KEY != '' }}
-        uses: Nexus-Mods/upload-action@c96019556046053aa26044b44396cd38929daf23 # v1.0.0-beta.10
-        with:
-          api_key: ${{ env.NEXUSMODS_API_KEY }}
-          file_id: ${{ env.NEXUSMODS_MONO_SERVER_FILE_GROUP_ID }}
-          mod_id: ${{ env.NEXUSMODS_MOD_ID }}
-          filename: release/Mono-Server.zip
-          version: ${{ needs.check-version.outputs.new-version }}
-          display_name: S1DedicatedServers Server - Mono ${{ needs.check-version.outputs.new-version }}
-          description: ${{ env.RELEASE_DESCRIPTION }}
-          category: main
-          archive_existing_version: true
-          update_mod_version: true
-          allow_mod_manager_download: true
-          show_requirements_pop_up: false
-
-      - name: Upload Mono Client to Nexus Mods
-        if: ${{ needs.check-version.outputs.prerelease != 'true' && (github.event_name != 'workflow_dispatch' || inputs.publish_nexus) && env.NEXUSMODS_API_KEY != '' }}
-        uses: Nexus-Mods/upload-action@c96019556046053aa26044b44396cd38929daf23 # v1.0.0-beta.10
-        with:
-          api_key: ${{ env.NEXUSMODS_API_KEY }}
-          file_id: ${{ env.NEXUSMODS_MONO_CLIENT_FILE_GROUP_ID }}
-          mod_id: ${{ env.NEXUSMODS_MOD_ID }}
-          filename: release/Mono-Client.zip
-          version: ${{ needs.check-version.outputs.new-version }}
-          display_name: S1DedicatedServers Client - Mono ${{ needs.check-version.outputs.new-version }}
-          description: ${{ env.RELEASE_DESCRIPTION }}
-          category: main
-          archive_existing_version: true
-          update_mod_version: true
-          allow_mod_manager_download: true
-          show_requirements_pop_up: false
-
-      - name: Upload IL2CPP Server to Nexus Mods
-        if: ${{ needs.check-version.outputs.prerelease != 'true' && (github.event_name != 'workflow_dispatch' || inputs.publish_nexus) && env.NEXUSMODS_API_KEY != '' }}
-        uses: Nexus-Mods/upload-action@c96019556046053aa26044b44396cd38929daf23 # v1.0.0-beta.10
-        with:
-          api_key: ${{ env.NEXUSMODS_API_KEY }}
-          file_id: ${{ env.NEXUSMODS_IL2CPP_SERVER_FILE_GROUP_ID }}
-          mod_id: ${{ env.NEXUSMODS_MOD_ID }}
-          filename: release/Il2cpp_Server.zip
-          version: ${{ needs.check-version.outputs.new-version }}
-          display_name: S1DedicatedServers Server - Il2cpp ${{ needs.check-version.outputs.new-version }}
-          description: ${{ env.RELEASE_DESCRIPTION }}
-          category: main
-          archive_existing_version: true
-          update_mod_version: true
-          allow_mod_manager_download: true
-          show_requirements_pop_up: false
-
-      - name: Upload IL2CPP Client to Nexus Mods
-        if: ${{ needs.check-version.outputs.prerelease != 'true' && (github.event_name != 'workflow_dispatch' || inputs.publish_nexus) && env.NEXUSMODS_API_KEY != '' }}
-        uses: Nexus-Mods/upload-action@c96019556046053aa26044b44396cd38929daf23 # v1.0.0-beta.10
-        with:
-          api_key: ${{ env.NEXUSMODS_API_KEY }}
-          file_id: ${{ env.NEXUSMODS_IL2CPP_CLIENT_FILE_GROUP_ID }}
-          mod_id: ${{ env.NEXUSMODS_MOD_ID }}
-          filename: release/Il2cpp_Client.zip
-          version: ${{ needs.check-version.outputs.new-version }}
-          display_name: S1DedicatedServers Client - Il2cpp ${{ needs.check-version.outputs.new-version }}
-          description: ${{ env.RELEASE_DESCRIPTION }}
-          category: main
-          archive_existing_version: true
-          update_mod_version: true
-          allow_mod_manager_download: true
-          show_requirements_pop_up: false
-
-      - name: Skip Nexus Mods uploads
-        if: ${{ needs.check-version.outputs.prerelease != 'true' && (github.event_name != 'workflow_dispatch' || inputs.publish_nexus) && env.NEXUSMODS_API_KEY == '' }}
-        shell: bash
-        run: echo "::notice::Skipping Nexus Mods uploads because NEXUSMODS_API_KEY is not configured. Rerun this workflow manually after adding the secret."
-
-      - name: Summary
-        env:
-          RELEASE_VERSION: ${{ needs.check-version.outputs.new-version }}
-          RELEASE_PRERELEASE: ${{ needs.check-version.outputs.prerelease }}
-        shell: pwsh
-        run: |
-          Add-Content $env:GITHUB_STEP_SUMMARY "### Release Created Successfully"
-          Add-Content $env:GITHUB_STEP_SUMMARY ""
-          Add-Content $env:GITHUB_STEP_SUMMARY "**Version:** v$env:RELEASE_VERSION"
-          Add-Content $env:GITHUB_STEP_SUMMARY "**Prerelease:** $env:RELEASE_PRERELEASE"
-          Add-Content $env:GITHUB_STEP_SUMMARY ""
-          Add-Content $env:GITHUB_STEP_SUMMARY "**Artifacts:**"
-          Add-Content $env:GITHUB_STEP_SUMMARY "- Mono-Server.zip"
-          Add-Content $env:GITHUB_STEP_SUMMARY "- Mono-Client.zip"
-          Add-Content $env:GITHUB_STEP_SUMMARY "- Il2cpp_Server.zip"
-          Add-Content $env:GITHUB_STEP_SUMMARY "- Il2cpp_Client.zip"
-          Add-Content $env:GITHUB_STEP_SUMMARY "- Docker.zip"
-
-  publish-docker-image:
-    needs:
-      - check-version
-      - create-release
-    if: needs.check-version.outputs.version-changed == 'true'
+          python3 - <<'PY'
+          import os,re,subprocess
+          from pathlib import Path
+          tag=os.environ['RELEASE_TAG']
+          found=re.fullmatch(r'(public|beta)-v(\d+\.\d+\.\d+(?:-[0-9A-Za-z][0-9A-Za-z.-]*)?)',tag)
+          if not found: raise SystemExit('Use public-vVERSION or beta-vVERSION.')
+          version=re.search(r'ModVersion = "([^"]+)"',Path('API/Version.cs').read_text()).group(1)
+          if found.group(2)!=version: raise SystemExit('Tag must match API/Version.cs.')
+          commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          tag_commit=subprocess.check_output(['git','rev-parse',tag+'^{commit}'],text=True).strip()
+          if commit!=tag_commit: raise SystemExit('Checkout does not match the requested tag.')
+          subprocess.run(['git','merge-base','--is-ancestor',commit,'origin/main'],check=True)
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f:
+              f.write(f'tag={tag}\nversion={version}\nchannel={found.group(1)}\nbranch={found.group(1).title()}\ncommit={commit}\n')
+          PY
+  build:
+    needs: metadata
+    uses: ./.github/workflows/build.yml
+    with:
+      game_branch: ${{ needs.metadata.outputs.branch }}
+      source_ref: ${{ needs.metadata.outputs.commit }}
+    secrets: inherit
+  publish:
+    needs: [metadata, build]
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write
-
+      contents: write
     steps:
-      - name: Download Docker Image Context
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
         with:
-          name: docker-image-context
-          path: docker-context
-
-      - name: Compute Image Name
-        id: image
-        shell: bash
+          ref: ${{ needs.metadata.outputs.commit }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: DedicatedServerMod-${{ needs.metadata.outputs.branch }}-*
+          merge-multiple: true
+          path: .
+      - name: Package mod assets and installers
+        env:
+          VERSION: ${{ needs.metadata.outputs.version }}
+          CHANNEL: ${{ needs.metadata.outputs.channel }}
+          RUNTIMES: ${{ vars.S1DS_BUILD_RUNTIMES || '["Il2cpp"]' }}
         run: |
-          set -euo pipefail
-          repository_lower=$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')
-          echo "name=ghcr.io/${repository_lower}" >> "$GITHUB_OUTPUT"
-
-      - name: Set Up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log In To GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Generate Docker Metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ steps.image.outputs.name }}
-          flavor: |
-            latest=false
-          tags: |
-            type=raw,value=${{ needs.check-version.outputs.new-version }}
-            type=sha,prefix=sha-
-            type=raw,value=latest,enable=${{ needs.check-version.outputs.prerelease != 'true' }}
-
-      - name: Build And Push Docker Image
-        uses: docker/build-push-action@v6
-        with:
-          context: docker-context
-          file: docker-context/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          python3 - <<'PY'
+          import json,os,subprocess
+          subprocess.run(['python3','build/Package-Release.py','--version',os.environ['VERSION'],'--channel',os.environ['CHANNEL'],'--output','artifacts/release','--runtimes',*json.loads(os.environ['RUNTIMES'])],check=True)
+          PY
+      - name: Publish complete immutable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
+          CHANNEL: ${{ needs.metadata.outputs.channel }}
+        run: |
+          python3 - <<'PY'
+          import os,subprocess
+          from pathlib import Path
+          tag=os.environ['RELEASE_TAG']; channel=os.environ['CHANNEL']
+          check=subprocess.run(['gh','release','view',tag],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+          if check.returncode==0: raise SystemExit('Release already exists. Do not overwrite it; increment the fork version.')
+          notes=Path('release-notes.md')
+          notes.write_text(f'Schedule I {channel} fork build. Download **Unnamed-Schedule-I-Setup.zip** for online setup or **Unnamed-Schedule-I-Client.zip** for an offline-capable installer. The same scripts install, update, uninstall and switch public/beta mod files. Switch the game branch in Steam first. Both players and server need matching builds. See the bundled START-HERE.md.\n')
+          args=['gh','release','create',tag,'--verify-tag','--draft','--title',f'S1DS {channel.title()} {tag.split("-v",1)[1]}','--notes-file',str(notes)]
+          if channel=='beta': args.append('--prerelease')
+          subprocess.run(args,check=True)
+          folder=Path('artifacts/release')/channel
+          subprocess.run(['gh','release','upload',tag,*[str(p) for p in sorted(folder.iterdir()) if p.is_file()]],check=True)
+          subprocess.run(['gh','release','edit',tag,'--draft=false','--latest='+str(channel=='public').lower()],check=True)
+          PY

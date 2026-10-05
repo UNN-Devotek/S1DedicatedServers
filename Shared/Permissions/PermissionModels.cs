@@ -36,6 +36,8 @@ namespace DedicatedServerMod.Shared.Permissions
             public const string ServerHelp = "server.help";
             public const string ServerInfo = "server.info";
             public const string ServerSave = "server.save";
+            /// <summary>Allows sending in-game server announcements.</summary>
+            public const string ServerBroadcast = "server.broadcast";
             public const string ServerReloadConfig = "server.reloadconfig";
             public const string ServerStop = "server.stop";
             public const string PermissionsReload = "permissions.reload";

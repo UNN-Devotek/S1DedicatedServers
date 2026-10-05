@@ -1,3 +1,16 @@
+#if GAME_BETA
+#if IL2CPP
+using SleepMenuType = Il2CppScheduleOne.UI.SleepMenu;
+#else
+using SleepMenuType = ScheduleOne.UI.SleepMenu;
+#endif
+#else
+#if IL2CPP
+using SleepMenuType = Il2CppScheduleOne.UI.SleepCanvas;
+#else
+using SleepMenuType = ScheduleOne.UI.SleepCanvas;
+#endif
+#endif
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -128,13 +141,13 @@ namespace DedicatedServerMod.Client.Patches
             [HarmonyTargetMethods]
             private static IEnumerable<MethodBase> TargetMethods()
             {
-                var setIsOpen = AccessTools.Method(typeof(SleepCanvas), "SetIsOpen");
+                var setIsOpen = AccessTools.Method(typeof(SleepMenuType), "SetIsOpen");
                 if (setIsOpen != null)
                 {
                     yield return setIsOpen;
                 }
 
-                var openMenu = AccessTools.Method(typeof(SleepCanvas), "OpenMenu");
+                var openMenu = AccessTools.Method(typeof(SleepMenuType), "OpenMenu");
                 if (openMenu != null)
                 {
                     yield return openMenu;

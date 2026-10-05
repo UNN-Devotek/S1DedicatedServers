@@ -298,6 +298,7 @@ namespace DedicatedServerMod.Server.Commands
             RegisterCommand(new ServerInfoCommand(playerManager, networkManager));
             RegisterCommand(new ReloadConfigCommand(playerManager));
             RegisterCommand(new SaveCommand(playerManager));
+            RegisterCommand(new BroadcastCommand(playerManager));
             RegisterCommand(new SetTimeCommand(playerManager));
             RegisterCommand(new SetTimeScaleCommand(playerManager));
             RegisterCommand(new LogsCommand(playerManager));

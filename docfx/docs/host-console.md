@@ -66,3 +66,29 @@ Use the TCP console when you want an explicitly separate remote admin surface wi
 - If you change `tcpConsoleBindAddress` to `0.0.0.0` or another non-loopback address, the console becomes reachable on that interface and you must open or forward `tcpConsolePort` separately.
 - If you expose the TCP console beyond localhost, require a password and treat it as a trusted admin surface, not a public service.
 - The built-in web panel does not support LAN/public bind addresses. If you need a browser UI from another machine, use a hosted panel such as Pterodactyl or build an authenticated web panel on top of the TCP console or another supported control surface.
+
+### Restart announcements
+
+The fork adds `broadcast <message>` to the shared command pipeline, available through TCP, stdio, the web panel, and the in-game admin console. Pterodactyl console input and scheduled **Send command** tasks can use it directly:
+
+```text
+broadcast "Server restarting in 5 minutes."
+```
+
+Both the server and each player's client need this fork's announcement-capable build, matching their game branch and runtime. Original S1DS 1.1.0 clients do not display this message. The client shows an audible ten-second game notification and records `[SERVER ANNOUNCEMENT]` in its MelonLoader log. Messages contain 1–240 characters on one line. Quote text containing apostrophes or other quote characters according to the shared console grammar.
+
+The `server.broadcast` permission is granted to the built-in administrator group and inherited by operators. Host consoles already run with console authority. A transport reply reports messages accepted for sending; it does not confirm that a player's UI displayed them. The loopback host and unauthenticated/disconnected peers are excluded, and a broadcast is rejected while messaging is not ready.
+
+For restarts at midnight, 04:00, 08:00, 12:00, 16:00 and 20:00, set the schedule cron to `55 3,7,11,15,19,23 * * *` in the panel's configured timezone. Enable **Only when server is online**. Add these ordered tasks (delays are relative to the preceding task):
+
+| Task | Action | Payload | Delay |
+| --- | --- | --- | --- |
+| 1 | Send command | `broadcast "Server restarting in 5 minutes."` | 0 seconds |
+| 2 | Send command | `broadcast "Server restarting in 1 minute."` | 240 seconds |
+| 3 | Send command | `broadcast "Server restarting in 30 seconds."` | 30 seconds |
+| 4 | Send command | `save` | 0 seconds |
+| 5 | Send power action | `restart` | 30 seconds |
+
+Pterodactyl [queues each following task using that task's delay](https://github.com/pterodactyl/panel/blob/develop/app/Jobs/Schedule/RunTaskJob.php). The full sequence takes five minutes. Saving remains thirty seconds before the power restart; this is a grace period, not verification that every game save file was flushed. The previous deployment restarted thirty seconds past the hour; this sequence restarts at the hour. Queue latency can shift actual execution.
+
+Install matching mods and verify a manual `broadcast "Restart announcements enabled."` with a connected player before enabling the warning schedule. A standard Source RCON client is not compatible with S1DS's text TCP console protocol; Pterodactyl's existing console bridge is sufficient and port 4050 can remain loopback-only.

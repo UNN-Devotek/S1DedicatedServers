@@ -84,6 +84,15 @@ namespace DedicatedServerMod.Server.Player.Runtime
             return GetPlayerMethod.Invoke(null, new object[] { connection }) as PlayerType;
         }
 
+        internal static bool HasReceivedData(PlayerType player)
+        {
+#if GAME_BETA
+            return player != null && player.PlayerLoaded;
+#else
+            return player != null && player.playerDataRetrieveReturned;
+#endif
+        }
+
         private static MethodInfo ResolveGetPlayerMethod()
         {
             Type[] parameterTypes = { typeof(NetworkConnectionType) };

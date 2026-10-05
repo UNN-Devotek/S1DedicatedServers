@@ -46,14 +46,18 @@ namespace DedicatedServerMod.Server.Commands.BuiltIn.Gameplay
                 return;
             }
 
-            if (timeManager.IsSleepInProgress)
+            if (DedicatedServerMod.Utils.SleepRuntime.IsSleepInProgress)
             {
                 context.ReplyError("Can't set time while sleep is in progress.");
                 return;
             }
 
             int targetTime = int.Parse(context.Arguments[0]);
+            #if GAME_BETA
+            timeManager.SetTime_Server(targetTime);
+#else
             timeManager.SetTimeAndSync(targetTime);
+#endif
             context.Reply($"Server time set to {TimeManagerType.Get12HourTime(targetTime, true)} ({targetTime:D4}).");
         }
     }

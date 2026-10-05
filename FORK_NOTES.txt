@@ -67,3 +67,118 @@ Final validation for this patch set:
   server/client and MONO/IL2CPP define combinations (6 or 7 checks per run).
 - Full Il2cpp_Server and Il2cpp_Client builds succeed with zero warnings/errors
   against the installed stable game assemblies; full Mono builds were not run.
+
+NPC building-entry compatibility (additional log audit):
+[Confirmed] Client startup cannot find NPCAction.npc as a managed field.
+The installed stable game's generated IL2CPP wrapper exposes it as a property;
+the existing HarmonyPrepare therefore disables the reconnect validation patch.
+[Confirmed] Unity logs contain a null reference in the PlayEnterAnimation
+WaitUntil predicate while processing its building-entry RPC during reconnect.
+- Resolve either the Mono field or IL2CPP property without a failed AccessTools
+  field lookup, so the existing dedicated-session validation guard registers.
+- Keep the healthy-entry and ordinary-session paths unchanged. Extract the
+  guard into NpcBuildingEntryPatches.cs for focused real-Harmony regressions.
+- This validates the object graph at RPC entry; it cannot prevent an NPC from
+  being destroyed after an asynchronous animation coroutine has already begun.
+- AmbientOneShot, AnalogueClock and weather callback null references were also
+  observed around scene cleanup. Their lifetime handling remains under review;
+  no broad suppression or skipping of progression callbacks was introduced.
+- Invalid transforms also affect Greg and vehicles, beyond the police. The
+  existing ragdoll fallback guard does not repair those transforms.
+[Confirmed] The reporting collector first throws OutOfMemoryException in
+StringBuilder.ExpandByABlock at 17:37:19.275 Eastern on the client and at
+21:28:22.413 UTC in the previous server session, then repeatedly throws null
+references. Bypassing that buffer in dedicated sessions addresses the observed
+allocation path; it does not stop Unity's underlying collider warnings.
+- New entry tests pass 10 MONO-alias and 11 IL2CPP-alias real-Harmony checks.
+  Restoring the old field-only Prepare makes the IL2CPP test fail to register.
+- Full IL2CPP client/server builds still pass with zero warnings/errors.
+
+2026-10-04 additional fixes and branch builds (local working tree):
+[Confirmed] The staggered ActionList replacement retained unregistered delegates
+in its snapshot and invoked them after their target was torn down. It now checks
+live subscriptions before each invocation. Native ExitToMenu, LoadManager.CleanUp
+and TimeManager.Clean invalidate a generation captured by pending dedicated
+callbacks. Native StaggeredCallbackUtility callbacks and completions are wrapped
+only during dedicated sessions and cancel after scene cleanup. Cleanup always
+advances the generation, even if disconnect already cleared the session flag.
+The mod's cleanup fallback also invalidates pending work. Ordinary session
+callbacks remain native. This addresses the audio/clock/weather callback lifetime
+path; it does not swallow unrelated live-scene errors.
+- SceneCallbackTests apply real Harmony patches to managed doubles under both
+  runtime names. 12 checks per runtime cover removal during a stagger delay,
+  cleanup/reconnect, cleanup after the session flag clears, native weather and
+  completion cancellation, new-scene callbacks and ordinary-session behavior.
+- ReportingCollectorTests, PoliceRecoveryTests, NpcBuildingEntryTests and scene
+  tests pass locally: 129 checks total. These do not constitute multiplayer proof.
+
+Public/Beta builds:
+- Eight configurations: Public/Beta x Mono/IL2CPP x Client/Server. _Beta suffix
+  or GameBranch=Beta selects branch-specific reference paths, constants, assembly
+  metadata, bin and obj trees. Missing beta references fail without falling back
+  to public. Builds default to artifact creation; automatic deployment is opt-in.
+- build/Build-Mod.ps1 builds both branches and both sides (IL2CPP by default),
+  with -Runtime Both selecting Mono as well. BUILD_SETUP.md and the local path
+  template describe matching assemblies, outputs and deployment overrides.
+- Adapted beta 0.4.7f7's player identity/loaded/data-request APIs and local
+  visibility, SleepController/SleepMenu, time RPC, renamed messaging storage,
+  movement/animation fields, relocated avatar impostors and renamed animator
+  culling callback. Police HitByCar is inherited from NPCResponses in beta;
+  target that base callback and filter by an actual parent officer.
+- The Build workflow has eight separate artifact jobs and needs private game
+  assembly repository/token secrets with matching main and beta branches.
+  The stable release and docs workflows stay on Public and use the new outputs.
+- Four real IL2CPP DLLs compile with zero warnings/errors against Public
+  0.4.6f13 (Steam build 24705572) and Beta 0.4.7f7 (build 25622691).
+- Actual beta server startup in a separate container reached READY, loaded a
+  copied save and spawned its loopback host with no Harmony failures or
+  exceptions in the captured final log. Actual beta client startup installed
+  its patches and initialized successfully with no Harmony failures/exceptions.
+  No Steam client runs in that container, so this did not test authentication,
+  a remote client joining, sleep events or sample/region progression.
+- Full Mono compilation awaits real matching Mono inputs; Mono-alias tests
+  do not validate that game build. Future beta versions need new references and
+  native startup/multiplayer checks. This is verified against the preserved
+  beta version, not a claim about whichever Steam beta is newest.
+- The final Public server also reached READY with no Harmony failures/exceptions
+  in the captured native startup log. The beta server/client captures were repeated
+  with the packaged DLLs after the final callback lifetime adjustment.
+- Temporary containers and copied game/save files were removed after the checks.
+  Live mods/game files/saves and the public/beta backups were not replaced.
+- Four branch/side IL2CPP ZIPs and a SHA-256 manifest are in the ignored local
+  artifacts/public-beta-20261004 directory. Source changes are uncommitted and
+  have not been pushed to GitHub.
+
+Still unresolved:
+[Confirmed] Existing invalid transform/collider matrices occur on pedestrians,
+police and vehicles. Finite fallback checks avoid requesting recovery with a
+known bad pose but do not repair the original writer. The new lifecycle fix is
+not evidence of a transform repair. Sliding upright cops and sample/customer
+map unlocks still require a multiplayer reproduction after both peers install
+matching fork builds. NPC building-entry validation does not cancel a coroutine
+whose target is destroyed after a successful preflight check.
+
+2026-10-04 graffiti follow-up (audit only):
+[Confirmed] Current client/server logs receive cartel influence updates at
+19:06:56 and 19:11:35 Eastern. Unity logs identify Downtown and Docks unlocks,
+respectively, and queue RegionUnlockedCanvas post-sleep events. The server save
+has Westville approximately 25% and Downtown 0% influence. Collector exceptions
+accompany these messages, so its failure does not block all progression; this
+weakens the earlier generalized progression-interruption hypothesis.
+[Unconfirmed] No cleaning-specific event identifies the initiating action or
+before/after amount. The user's report that cleaning may now work is consistent
+with these updates but cannot be conclusively verified from the logs alone.
+No additional graffiti patch, live deployment or save edit was made.
+
+Server restart announcements:
+- broadcast <message> uses the existing console pipeline and custom messaging backend.
+- Updated clients show an audible ten-second notification; both public and beta IL2CPP builds support it.
+- server.broadcast permission defaults to administrators/operators.
+- See docfx/docs/host-console.md for the five-minute Pterodactyl warning/save/restart sequence.
+- Original 1.1.0 clients need updating to display announcements.
+
+Installer/release integration:
+- Shared Windows and Linux/Proton installer engine with public/beta selection, checksum verification, transactional rollback and receipt-based uninstallation.
+- Original files, modified-file recovery copies, favorites/history, other mods and saves are preserved.
+- public-vVERSION and beta-vVERSION publish separate GitHub releases from protected main; dev has automatic public/beta client/server builds.
+- See packaging/Installer/START-HERE.md and build/RELEASING.md.

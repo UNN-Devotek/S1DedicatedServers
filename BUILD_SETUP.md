@@ -30,8 +30,9 @@ The project uses a `local.build.props` file for user-specific paths. This file i
 2. Edit `local.build.props` and update the paths to match your local environment:
    ```xml
    <PropertyGroup>
-       <MonoGamePath>YOUR_PATH_HERE</MonoGamePath>
-       <Il2CppGamePath>YOUR_PATH_HERE</Il2CppGamePath>
+       <PublicIl2CppGamePath>YOUR_PUBLIC_GAME_PATH</PublicIl2CppGamePath>
+       <BetaIl2CppGamePath>YOUR_BETA_GAME_PATH</BetaIl2CppGamePath>
+       <!-- Add PublicMonoGamePath/BetaMonoGamePath if building Mono too. -->
    </PropertyGroup>
    ```
 
@@ -57,26 +58,64 @@ bun install
 cd ..
 ```
 
-## Build Configurations
+## Public and beta builds
 
-The project has four build configurations:
+Copy `local.build.props.example` to `local.build.props` and configure separate
+public/beta game roots. Launch each IL2CPP installation with MelonLoader once to
+generate that installation's `MelonLoader/Il2CppAssemblies`. The beta must use
+its own generated assemblies and matching MelonLoader references; public
+references are never a fallback. Do not put proprietary game DLLs in this repo.
 
-- **Mono_Client**: Mono build for client-side testing
-- **Mono_Server**: Mono build for server-side
-- **Il2cpp_Client**: IL2CPP build for client-side testing
-- **Il2cpp_Server**: IL2CPP build for server-side
+The same sources support both client and server for each game branch:
 
-Mono configurations target `netstandard2.1`. IL2CPP configurations target `net6.0`, matching the MelonLoader `net6` runtime used by the IL2CPP game build.
+| Runtime | Public client / server | Beta client / server |
+| --- | --- | --- |
+| IL2CPP | `Il2cpp_Client`, `Il2cpp_Server` | `Il2cpp_Client_Beta`, `Il2cpp_Server_Beta` |
+| Mono | `Mono_Client`, `Mono_Server` | `Mono_Client_Beta`, `Mono_Server_Beta` |
 
-### Building
+Mono targets `netstandard2.1`; IL2CPP targets `net6.0`. `GameBranch=Public` is
+also the default when using the original configuration names; explicitly
+passing `-p:GameBranch=Beta` selects beta with those names.
 
-```bash
-# Build a specific configuration
-dotnet build -c Mono_Server
-
-# Build all configurations
-dotnet build
+```sh
+# Four IL2CPP artifacts: public client/server and beta client/server.
+pwsh -File build/Build-Mod.ps1
+# Eight artifacts, when matching Mono references are configured too.
+pwsh -File build/Build-Mod.ps1 -Runtime Both
+# Or build a single artifact directly (no PowerShell required).
+dotnet build DedicatedServerMod.csproj -c Il2cpp_Client_Beta -p:CustomAfterMicrosoftCommonTargets=.github/ci/il2cpp-publicizer.targets
 ```
+
+Outputs are under `bin/Public/<runtime>_<side>/<framework>/` and
+`bin/Beta/<runtime>_<side>/<framework>/`. Intermediate reference caches are
+isolated under `obj/Public/` and `obj/Beta/`. Assembly informational version
+and `GameBranch` metadata identify the branch. DLL filenames stay compatible
+with MelonLoader and the existing mod policy, so keep each branch in its own
+package. Install only the matching server DLL on the host and matching client
+DLL on **every** client; changing the server alone is insufficient.
+
+`AutomateLocalDeployment` defaults to `false`. Copy artifacts deliberately or
+opt in to deployment in `local.build.props`. Beta uses its own Mods directory
+or `BetaClientDeploymentPath`/`BetaServerDeploymentPath` overrides. Assembly-only
+build inputs require an explicit deployment path if deployment is enabled.
+
+The Build workflow creates an eight-job Public/Beta × Mono/IL2CPP × Client/Server
+matrix with named branch artifacts. Configure `GAME_ASSEMBLIES_REPO` and
+`GAME_ASSEMBLIES_TOKEN` for Mono, and `IL2CPP_ASSEMBLIES_REPO` and
+`IL2CPP_ASSEMBLIES_TOKEN` for IL2CPP. Assembly repositories must have matching
+`main` (Public) and `beta` branches. Mono expects `Managed/` and `MelonLoader/`;
+IL2CPP supports `MelonLoader/Il2CppAssemblies` + `MelonLoader/net6` or those two
+directories at the repository root. Full builds require those private inputs;
+the regression workflow uses managed doubles and needs no game DLLs. The
+release and documentation workflows use Public assemblies; beta artifacts are
+created through the Build workflow or locally, without publishing a stable release.
+
+Compatibility verified here is **Public 0.4.6f13 / beta 0.4.7f7** (IL2CPP).
+Beta API mappings cover player identity/data loading and visibility, sleep,
+time, messaging, movement, avatar culling and inherited police responses.
+Later beta updates can change APIs again and need matching references and
+another runtime smoke test. Full Mono builds and multiplayer beta gameplay
+require additional verification; managed regression tests are not substitutes.
 
 ### Building the embedded web panel
 

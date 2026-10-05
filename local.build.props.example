@@ -1,33 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 
-  Local Build Configuration Template
-  
-  Copy this file to 'local.build.props' and update the paths to match your local environment.
-  The 'local.build.props' file is git-ignored so each contributor can have their own paths.
--->
+<!-- Copy to local.build.props (ignored by git). Keep public and beta installs separate. -->
 <Project>
-	<PropertyGroup>
-		<!-- 
-			Mono Game Path
-			Point this to your Mono build of Schedule I (if you have one)
-		-->
-		<MonoGamePath>D:\SteamLibrary\steamapps\common\Schedule I_alternate</MonoGamePath>
-		
-		<!-- 
-			IL2CPP Game Path
-			Point this to your IL2CPP build of Schedule I (if you have one)
-		-->
-		<Il2CppGamePath>D:\SteamLibrary\steamapps\common\Schedule I_public</Il2CppGamePath>
-		
-		<!-- Optional: Custom deployment paths -->
-        <!-- Runtime-specific paths take precedence over shared client/server overrides -->
-        <!-- If not specified, defaults to $(GamePath)\Mods -->
-        <!-- <MonoClientDeploymentPath>C:\Path\To\MonoClient\Mods</MonoClientDeploymentPath> -->
-        <!-- <MonoServerDeploymentPath>C:\Path\To\MonoServer\Mods</MonoServerDeploymentPath> -->
-        <!-- <Il2CppClientDeploymentPath>C:\Path\To\Il2CppClient\Mods</Il2CppClientDeploymentPath> -->
-        <!-- <Il2CppServerDeploymentPath>C:\Path\To\Il2CppServer\Mods</Il2CppServerDeploymentPath> -->
-        <!-- <ClientDeploymentPath>C:\Path\To\AllClients\Mods</ClientDeploymentPath> -->
-        <!-- <ServerDeploymentPath>C:\Path\To\AllServers\Mods</ServerDeploymentPath> -->
+  <PropertyGroup>
+    <PublicIl2CppGamePath>D:/Games/Schedule I_public</PublicIl2CppGamePath>
+    <BetaIl2CppGamePath>D:/Games/Schedule I_beta</BetaIl2CppGamePath>
+    <!-- Mono requires alternate / alternate-beta game installations. -->
+    <PublicMonoGamePath>D:/Games/Schedule I_alternate</PublicMonoGamePath>
+    <BetaMonoGamePath>D:/Games/Schedule I_alternate-beta</BetaMonoGamePath>
 
-	</PropertyGroup>
+    <!-- Legacy MonoGamePath/Il2CppGamePath still select Public only. -->
+    <!-- Assembly-only inputs can be used instead of full game roots:
+    <BetaIl2CppAssembliesPath>D:/Refs/beta/MelonLoader/Il2CppAssemblies</BetaIl2CppAssembliesPath>
+    <BetaIl2CppMelonLoaderPath>D:/Refs/beta/MelonLoader/net6</BetaIl2CppMelonLoaderPath>
+    <BetaMonoAssembliesPath>D:/Refs/alternate-beta/Managed</BetaMonoAssembliesPath>
+    <BetaMonoMelonLoaderPath>D:/Refs/alternate-beta/MelonLoader</BetaMonoMelonLoaderPath>
+    Public equivalents use the Public prefix.
+    -->
+
+    <!-- Builds produce artifacts only by default. Enable deliberate local deployment:
+    <AutomateLocalDeployment>true</AutomateLocalDeployment>
+    <BetaClientDeploymentPath>D:/Games/Schedule I_beta/Mods</BetaClientDeploymentPath>
+    <BetaServerDeploymentPath>D:/Servers/Schedule I_beta/Mods</BetaServerDeploymentPath>
+    Existing runtime-specific Public deployment overrides remain supported.
+    -->
+  </PropertyGroup>
 </Project>

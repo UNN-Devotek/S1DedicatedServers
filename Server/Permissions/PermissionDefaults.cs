@@ -55,6 +55,7 @@ namespace DedicatedServerMod.Server.Permissions
                     allow: new[]
                     {
                         PermissionBuiltIns.Nodes.ServerSave,
+                        PermissionBuiltIns.Nodes.ServerBroadcast,
                         PermissionBuiltIns.Nodes.ServerReloadConfig,
                         PermissionBuiltIns.Nodes.PermissionsInfo,
                         PermissionBuiltIns.Nodes.PermissionsGroupList,
@@ -168,6 +169,7 @@ namespace DedicatedServerMod.Server.Permissions
                 CreateDefinition(PermissionBuiltIns.Nodes.ServerHelp, "Server", "View help for built-in server commands."),
                 CreateDefinition(PermissionBuiltIns.Nodes.ServerInfo, "Server", "View dedicated server status information."),
                 CreateDefinition(PermissionBuiltIns.Nodes.ServerSave, "Server", "Trigger a server save."),
+                CreateDefinition(PermissionBuiltIns.Nodes.ServerBroadcast, "Server", "Send an announcement to connected players."),
                 CreateDefinition(PermissionBuiltIns.Nodes.ServerReloadConfig, "Server", "Reload server configuration from disk."),
                 CreateDefinition(PermissionBuiltIns.Nodes.ServerStop, "Server", "Stop the dedicated server."),
                 CreateDefinition(PermissionBuiltIns.Nodes.PermissionsReload, "Permissions", "Reload permissions from disk."),

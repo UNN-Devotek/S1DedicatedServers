@@ -1,0 +1,46 @@
+<Project>
+  <PropertyGroup>
+    <SelectedGamePath Condition="'$(ResolvedGameBranch)' == 'Public' And $(EffectiveConfiguration.StartsWith('Il2cpp_'))">$(PublicIl2CppGamePath)</SelectedGamePath>
+    <SelectedGamePath Condition="'$(ResolvedGameBranch)' == 'Public' And $(EffectiveConfiguration.StartsWith('Il2cpp_')) And '$(SelectedGamePath)' == ''">$(Il2CppGamePath)</SelectedGamePath>
+    <SelectedGamePath Condition="'$(ResolvedGameBranch)' == 'Beta' And $(EffectiveConfiguration.StartsWith('Il2cpp_'))">$(BetaIl2CppGamePath)</SelectedGamePath>
+    <SelectedGamePath Condition="'$(ResolvedGameBranch)' == 'Public' And !$(EffectiveConfiguration.StartsWith('Il2cpp_'))">$(PublicMonoGamePath)</SelectedGamePath>
+    <SelectedGamePath Condition="'$(ResolvedGameBranch)' == 'Public' And !$(EffectiveConfiguration.StartsWith('Il2cpp_')) And '$(SelectedGamePath)' == ''">$(MonoGamePath)</SelectedGamePath>
+    <SelectedGamePath Condition="'$(ResolvedGameBranch)' == 'Beta' And !$(EffectiveConfiguration.StartsWith('Il2cpp_'))">$(BetaMonoGamePath)</SelectedGamePath>
+    <GamePath>$(SelectedGamePath)</GamePath>
+    <ModsPath>$(GamePath)/Mods</ModsPath>
+    <DeploymentPath Condition="'$(ResolvedGameBranch)' == 'Beta'">$(ModsPath)</DeploymentPath>
+    <DeploymentPath Condition="'$(ResolvedGameBranch)' == 'Beta' And $(EffectiveConfiguration.EndsWith('_Client')) And '$(BetaClientDeploymentPath)' != ''">$(BetaClientDeploymentPath)</DeploymentPath>
+    <DeploymentPath Condition="'$(ResolvedGameBranch)' == 'Beta' And $(EffectiveConfiguration.EndsWith('_Server')) And '$(BetaServerDeploymentPath)' != ''">$(BetaServerDeploymentPath)</DeploymentPath>
+    <InformationalVersion>$(Version)+$(ResolvedGameBranch)</InformationalVersion>
+    <DefineConstants Condition="'$(ResolvedGameBranch)' == 'Beta'">$(DefineConstants);GAME_BETA</DefineConstants>
+    <DefineConstants Condition="'$(ResolvedGameBranch)' == 'Public'">$(DefineConstants);GAME_PUBLIC</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(EffectiveConfiguration.StartsWith('Il2cpp_'))">
+    <ManagedPath>$(GamePath)/MelonLoader/Il2CppAssemblies</ManagedPath>
+    <MelonLoaderPath>$(GamePath)/MelonLoader/net6</MelonLoaderPath>
+    <ManagedPath Condition="'$(ResolvedGameBranch)' == 'Public' And '$(PublicIl2CppAssembliesPath)' != ''">$(PublicIl2CppAssembliesPath)</ManagedPath>
+    <ManagedPath Condition="'$(ResolvedGameBranch)' == 'Beta' And '$(BetaIl2CppAssembliesPath)' != ''">$(BetaIl2CppAssembliesPath)</ManagedPath>
+    <MelonLoaderPath Condition="'$(ResolvedGameBranch)' == 'Public' And '$(PublicIl2CppMelonLoaderPath)' != ''">$(PublicIl2CppMelonLoaderPath)</MelonLoaderPath>
+    <MelonLoaderPath Condition="'$(ResolvedGameBranch)' == 'Beta' And '$(BetaIl2CppMelonLoaderPath)' != ''">$(BetaIl2CppMelonLoaderPath)</MelonLoaderPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="!$(EffectiveConfiguration.StartsWith('Il2cpp_'))">
+    <ManagedPath>$(GamePath)/Schedule I_Data/Managed</ManagedPath>
+    <MelonLoaderPath>$(GamePath)/MelonLoader/net35</MelonLoaderPath>
+    <ManagedPath Condition="'$(ResolvedGameBranch)' == 'Public' And '$(MonoAssembliesPath)' != ''">$(MonoAssembliesPath)</ManagedPath>
+    <MelonLoaderPath Condition="'$(ResolvedGameBranch)' == 'Public' And '$(MelonLoaderAssembliesPath)' != ''">$(MelonLoaderAssembliesPath)</MelonLoaderPath>
+    <ManagedPath Condition="'$(ResolvedGameBranch)' == 'Public' And '$(PublicMonoAssembliesPath)' != ''">$(PublicMonoAssembliesPath)</ManagedPath>
+    <ManagedPath Condition="'$(ResolvedGameBranch)' == 'Beta' And '$(BetaMonoAssembliesPath)' != ''">$(BetaMonoAssembliesPath)</ManagedPath>
+    <MelonLoaderPath Condition="'$(ResolvedGameBranch)' == 'Public' And '$(PublicMonoMelonLoaderPath)' != ''">$(PublicMonoMelonLoaderPath)</MelonLoaderPath>
+    <MelonLoaderPath Condition="'$(ResolvedGameBranch)' == 'Beta' And '$(BetaMonoMelonLoaderPath)' != ''">$(BetaMonoMelonLoaderPath)</MelonLoaderPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <AssemblyMetadata Include="GameBranch" Value="$(ResolvedGameBranch)" />
+  </ItemGroup>
+  <Target Name="ValidateGameBranchInputs" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="'$(GameBranch)' != 'Public' And '$(GameBranch)' != 'Beta'" Text="GameBranch must be Public or Beta." />
+    <Error Condition="$(Configuration.EndsWith('_Beta')) And '$(GameBranch)' != 'Beta'" Text="A _Beta configuration requires GameBranch=Beta." />
+    <Error Condition="!Exists('$(ManagedPath)/Assembly-CSharp.dll')" Text="$(ResolvedGameBranch) game assemblies not found at $(ManagedPath). Configure that branch's game or assembly path in local.build.props; beta never falls back to public assemblies." />
+    <Error Condition="!Exists('$(MelonLoaderPath)/MelonLoader.dll')" Text="$(ResolvedGameBranch) MelonLoader references not found at $(MelonLoaderPath)." />
+    <Message Importance="high" Text="Building $(ResolvedGameBranch) $(EffectiveConfiguration) against $(ManagedPath)" />
+  </Target>
+</Project>

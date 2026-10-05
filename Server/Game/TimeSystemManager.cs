@@ -62,7 +62,11 @@ namespace DedicatedServerMod.Server.Game
                 {
                     int addMins = (int)Math.Round(amount.TotalMinutes);
                     int newTime = TimeManager.AddMinutesTo24HourTime(tm.CurrentTime, addMins);
-                    tm.SetTimeAndSync(newTime);
+                    #if GAME_BETA
+            tm.SetTime_Server(newTime);
+#else
+            tm.SetTimeAndSync(newTime);
+#endif
                     DebugLog.Verbose($"Forced time advancement: {addMins} minutes");
                 }
             }
