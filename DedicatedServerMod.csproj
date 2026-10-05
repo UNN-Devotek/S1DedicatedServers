@@ -419,6 +419,9 @@
 
 	<!-- Il2cpp references -->
 	<ItemGroup Condition="'$(EffectiveConfiguration)'=='Il2cpp_Client' Or '$(EffectiveConfiguration)'=='Il2cpp_Server'">
+		<Reference Include="Il2CppScheduleOne.Core" Condition="Exists('$(ManagedPath)\Il2CppScheduleOne.Core.dll')">
+			<HintPath>$(ManagedPath)\Il2CppScheduleOne.Core.dll</HintPath>
+		</Reference>
 		<Reference Include="Assembly-CSharp-firstpass">
 			<HintPath>$(ManagedPath)\Assembly-CSharp-firstpass.dll</HintPath>
 		</Reference>
