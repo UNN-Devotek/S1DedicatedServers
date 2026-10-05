@@ -67,6 +67,22 @@ Use the TCP console when you want an explicitly separate remote admin surface wi
 - If you expose the TCP console beyond localhost, require a password and treat it as a trusted admin surface, not a public service.
 - The built-in web panel does not support LAN/public bind addresses. If you need a browser UI from another machine, use a hosted panel such as Pterodactyl or build an authenticated web panel on top of the TCP console or another supported control surface.
 
+### Vehicles and inventory grants
+
+TCP console, stdio, the web panel, and Pterodactyl's console bridge can run:
+
+```text
+spawnvehicle Devotek shitbox
+give Devotek baggie 20
+give "Player With Spaces" baggie 1
+```
+
+The target must be online, authenticated, and spawned. Use `listplayers` to find names, or supply a Steam ID or client ID. A vehicle spawns four metres ahead and one metre above the target as a player-owned vehicle. Invalid vehicle/item codes, ambiguous names, and invalid quantities are rejected. Quantities range from 1 to 1000 and default to 1.
+
+`give` uses the existing `exec_console` message handled by S1DS clients. It reports that the grant was queued, not that inventory delivery succeeded. Inventory capacity and item-specific behavior remain controlled by the game. Updating the server enables these commands; a matching S1DS client with the existing command relay is sufficient.
+
+In-game operators can still run `spawnvehicle shitbox` and `give baggie 20` for themselves. Targeted in-game grants require quantity: `give Devotek baggie 20`. Permissions remain `console.command.spawnvehicle` and `console.command.give`; host-console authority does not require assigning operator status to the target.
+
 ### Restart announcements
 
 The fork adds `broadcast <message>` to the shared command pipeline, available through TCP, stdio, the web panel, and the in-game admin console. Pterodactyl console input and scheduled **Send command** tasks can use it directly:
