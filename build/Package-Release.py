@@ -45,10 +45,16 @@ def dependency(item, cache):
     return archive
 
 
+def write_checksums(folder):
+    files = sorted(p for p in folder.iterdir() if p.is_file() and p.name != 'SHA256SUMS')
+    (folder / 'SHA256SUMS').write_text(''.join(f'{digest(p)}  {p.name}\n' for p in files), encoding='utf-8')
+
+
 def package(version, channel, runtimes, output, cache):
+    source_version = re.search(r'ModVersion = "([^"]+)"', (ROOT / 'API/Version.cs').read_text()).group(1)
+    version = version or source_version
     if not re.fullmatch(r'\d+\.\d+\.\d+(?:-[0-9A-Za-z][0-9A-Za-z.-]*)?', version):
         raise ValueError('Invalid release version.')
-    source_version = re.search(r'ModVersion = "([^"]+)"', (ROOT / 'API/Version.cs').read_text()).group(1)
     if version != source_version:
         raise ValueError('Release version must match API/Version.cs.')
     settings = json.loads((ROOT / 'packaging/Installer/installer-settings.json').read_text())
@@ -93,7 +99,7 @@ def package(version, channel, runtimes, output, cache):
         for item in ('loader', 'python'):
             shutil.copy2(dependency(settings[item], cache), deps / settings[item]['file'])
         zip_tree(setup, dest / 'Unnamed-Schedule-I-Client.zip')
-    (dest / 'SHA256SUMS').write_text(''.join(f'{digest(p)}  {p.name}\n' for p in sorted(dest.iterdir()) if p.is_file()), encoding='utf-8')
+    write_checksums(dest)
     print(dest)
     return dest
 
@@ -109,12 +115,17 @@ def bundle(output):
             if path.name == 'release-manifest.json' or path.name.startswith('S1DS-') and path.suffix == '.zip':
                 shutil.copy2(path, stage / 'Packages/beta' / path.name)
         zip_tree(stage, output / 'Unnamed-Schedule-I-Client.zip')
+    # Keep the historical local name and include the same handout in each release.
+    for channel in ('public', 'beta'):
+        folder = output / channel
+        shutil.copy2(output / 'Unnamed-Schedule-I-Client.zip', folder / 'Unnamed-Schedule-I-Public-and-Beta.zip')
+        write_checksums(folder)
     print(output / 'Unnamed-Schedule-I-Client.zip')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--version', required=True)
+    parser.add_argument('--version', help='Defaults to the current fork version in API/Version.cs.')
     parser.add_argument('--channel', choices=['public', 'beta', 'both'], default='both')
     parser.add_argument('--runtimes', nargs='+', choices=['Il2cpp', 'Mono'], default=['Il2cpp'])
     parser.add_argument('--output', type=Path, required=True)

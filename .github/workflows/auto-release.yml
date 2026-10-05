@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Existing main tag, e.g. public-v1.1.0-unn.1 or beta-v1.1.0-unn.1'
+        description: 'Existing reviewed main tag: public-vVERSION or beta-vVERSION'
         required: true
         type: string
 
@@ -54,7 +54,7 @@ jobs:
     needs: metadata
     uses: ./.github/workflows/build.yml
     with:
-      game_branch: ${{ needs.metadata.outputs.branch }}
+      game_branch: Both
       source_ref: ${{ needs.metadata.outputs.commit }}
     secrets: inherit
   publish:
@@ -71,7 +71,7 @@ jobs:
           python-version: '3.13'
       - uses: actions/download-artifact@v4
         with:
-          pattern: DedicatedServerMod-${{ needs.metadata.outputs.branch }}-*
+          pattern: DedicatedServerMod-*
           merge-multiple: true
           path: .
       - name: Package mod assets and installers
@@ -82,7 +82,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import json,os,subprocess
-          subprocess.run(['python3','build/Package-Release.py','--version',os.environ['VERSION'],'--channel',os.environ['CHANNEL'],'--output','artifacts/release','--runtimes',*json.loads(os.environ['RUNTIMES'])],check=True)
+          subprocess.run(['python3','build/Package-Release.py','--version',os.environ['VERSION'],'--channel','both','--output','artifacts/release','--runtimes',*json.loads(os.environ['RUNTIMES'])],check=True)
           PY
       - name: Publish complete immutable release
         env:
@@ -98,7 +98,7 @@ jobs:
           check=subprocess.run(['gh','release','view',tag],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
           if check.returncode==0: raise SystemExit('Release already exists. Do not overwrite it; increment the fork version.')
           notes=Path('release-notes.md')
-          notes.write_text(f'Schedule I {channel} fork build. Download **Unnamed-Schedule-I-Setup.zip** for online setup or **Unnamed-Schedule-I-Client.zip** for an offline-capable installer. The same scripts install, update, uninstall and switch public/beta mod files. Switch the game branch in Steam first. Both players and server need matching builds. See the bundled START-HERE.md.\n')
+          notes.write_text(f'Schedule I {channel} fork build. Download **Unnamed-Schedule-I-Setup.zip** for online setup, **Unnamed-Schedule-I-Client.zip** for this channel with bundled mod files, or **Unnamed-Schedule-I-Public-and-Beta.zip** for the shareable installer with both channels bundled. All ZIPs support Windows and Linux/Steam Deck. Online installation downloads the newest published release in the selected channel; bundled/offline files are used only when selected explicitly. Switch the game branch in Steam first. Both players and server need matching builds. See the bundled START-HERE.md.\n')
           args=['gh','release','create',tag,'--verify-tag','--draft','--title',f'S1DS {channel.title()} {tag.split("-v",1)[1]}','--notes-file',str(notes)]
           if channel=='beta': args.append('--prerelease')
           subprocess.run(args,check=True)

@@ -11,7 +11,11 @@ This package installs the Unnamed S1DS fork, including server announcements and 
 
 For one-click channel selection, use **Install-Public.cmd** or **Install-Beta.cmd**. The same scripts also update an existing install. Steam must already have the matching game branch; these scripts change the mod files only.
 
-The full **Client ZIP** includes mod files and dependencies for offline installation. The **Setup ZIP** downloads them. In the full ZIP's menu, choose bundled/offline files when prompted, or run:
+The full **Client ZIP** includes this release's channel and dependencies for offline installation. **Unnamed-Schedule-I-Public-and-Beta.zip** contains both channels and is the shareable handout; it is built and attached to every tagged release. The **Setup ZIP** downloads the files.
+
+Every installer uses the **latest published public or beta release** when downloading online, even if its ZIP originally contained an older version. Drafts and the other channel are ignored. It uses the ZIP's bundled version only when you choose bundled/offline files or pass `-Offline` / `--offline`. To get fresh installer scripts, download the Setup ZIP from the newest release.
+
+In a full ZIP's menu, choose bundled/offline files when prompted, or run:
 
 ```powershell
 .\Install-Windows.ps1 -Action install -Channel public -GameDirectory 'C:\Games\Schedule I' -Offline
@@ -76,5 +80,5 @@ If you used the old installer, run this updated installer once to create its rec
 - An existing compatible MelonLoader is reused to preserve other mods.
 - Checksum failures stop installation; download a fresh ZIP instead of disabling validation.
 - Interrupted file changes roll back. Installer backups and receipts live in `.s1ds-installer` inside the game folder.
-- To install a specific version, use `-ReleaseTag public-v1.1.0-unn.2` on Windows or `--tag public-v1.1.0-unn.2` on Linux.
+- To install a specific version, use `-ReleaseTag public-v1.1.0-unn.4` on Windows or `--tag public-v1.1.0-unn.4` on Linux. Explicit version selection overrides the default latest-release lookup.
 - Mono/client/server selection is available in the command-line engine when those packages exist in the selected release. These initial releases provide IL2CPP client/server builds.
