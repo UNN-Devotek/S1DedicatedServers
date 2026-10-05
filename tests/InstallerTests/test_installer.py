@@ -182,6 +182,26 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(i.select_release(releases, 'public')['tag_name'], 'public-v1')
         self.assertEqual(i.select_release(releases, 'beta')['tag_name'], 'beta-v9')
 
+    def test_online_lookup_uses_latest_channel_instead_of_bundled_version(self):
+        def release(tag, published):
+            return dict(tag_name=tag, published_at=published, draft=False, prerelease=tag.startswith('beta-'),
+                        assets=[{'name': 'release-manifest.json', 'browser_download_url': 'https://example.invalid/' + tag}])
+        releases = [release('beta-v2', '2026-10-02'), release('public-v2', '2026-10-02'),
+                    release('public-v1', '2026-10-01'), release('beta-v1', '2026-10-01')]
+        urls = []
+        def response(url):
+            urls.append(url)
+            if '/releases?' in url:
+                return releases
+            tag = url.rsplit('/', 1)[1]
+            return {'schema': 1, 'tag': tag, 'channel': tag.split('-v')[0]}
+        with patch.object(i, 'request_json', side_effect=response):
+            for channel in ('public', 'beta'):
+                manifest, selected = i.release_manifest({'repository': 'owner/fork'}, channel)
+                self.assertEqual(manifest['tag'], channel + '-v2')
+                self.assertEqual(selected['tag_name'], channel + '-v2')
+        self.assertTrue(all('/tags/' not in url for url in urls))
+
     def test_game_build_mismatch_is_rejected(self):
         library = self.root / 'steamapps'; game = library / 'common/Schedule I'; game.mkdir(parents=True)
         (game / 'Schedule I.exe').touch(); (game / 'GameAssembly.dll').touch()

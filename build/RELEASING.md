@@ -27,7 +27,7 @@ git tag -a beta-v1.1.0-unn.1 main -m 'Beta fork 1.1.0-unn.1'
 git push origin public-v1.1.0-unn.1 beta-v1.1.0-unn.1
 ```
 
-The tag workflow validates the version and main ancestry, builds only matching references, packages DLLs plus installer/checksums, creates a draft release, uploads every asset, and then publishes it. Public becomes Latest; beta is a prerelease and never replaces Latest. Existing releases are not overwritten; increment the version for a new release. For a failed run before publication, inspect/remove the incomplete draft before retrying. Manual workflow dispatch accepts an existing tag and pins its exact source commit.
+The tag workflow validates the version and main ancestry, builds Public and Beta from their matching references at the same source commit, packages DLLs plus installer/checksums, creates a draft release, uploads every asset, and then publishes it. Building both channels ensures that every release can include the combined handout. Public becomes Latest; beta is a prerelease and never replaces Latest. Existing releases are not overwritten; increment the version for a new release. For a failed run before publication, inspect/remove the incomplete draft before retrying. Manual workflow dispatch accepts an existing tag and pins its exact source commit.
 
 Each channel includes:
 
@@ -35,19 +35,22 @@ Each channel includes:
 - Corresponding Server ZIPs (Mono ZIPs when enabled)
 - `Unnamed-Schedule-I-Setup.zip`: shared online installer/uninstaller scripts
 - `Unnamed-Schedule-I-Client.zip`: scripts plus that channel's offline payload, MelonLoader archive, and official portable Windows installer runtime
+- `Unnamed-Schedule-I-Public-and-Beta.zip`: the shareable Windows/Linux handout with both channels' Client/Server payloads from this source version, generated automatically and covered by SHA256SUMS
 - `release-manifest.json`: channel/version/commit/game metadata and SHA256 values
 - `SHA256SUMS`
 
 No Steam/game binaries, saves, logs, private keys or credentials are packaged. The distributable MelonLoader/portable Python dependencies keep their included licenses.
 
+Online installation resolves the newest published release in the selected channel at runtime; bundled versions and explicit tags do not pin normal online installs. The public/main installer ZIP always has a stable download URL: https://github.com/UNN-Devotek/S1DedicatedServers/releases/latest/download/Unnamed-Schedule-I-Setup.zip . The combined handout also has a stable URL: https://github.com/UNN-Devotek/S1DedicatedServers/releases/latest/download/Unnamed-Schedule-I-Public-and-Beta.zip . Beta installers resolve beta prereleases separately, so GitHub's public Latest flag cannot hide beta updates.
+
 ## Local packaging and one handout for both channels
 
 ```powershell
 pwsh -NoProfile -File build/Build-Mod.ps1
-python build/Package-Release.py --version 1.1.0-unn.1 --channel both --output artifacts/release-1.1.0-unn.1
+python build/Package-Release.py --channel both --output artifacts/new-release
 ```
 
-Use a new/empty output directory. Packaging checks the source version and required compiled DLLs, verifies pinned dependencies, includes licenses, and validates each generated ZIP. The top-level `Unnamed-Schedule-I-Client.zip` contains both channels for offline switching. The per-channel subdirectories contain upload-ready release assets. Build from a clean reviewed commit so the manifest commit matches the binary source.
+Use a new/empty output directory. The packager automatically reads the current fork version from `API/Version.cs`; an explicit `--version` must match it. Packaging checks the source version and required compiled DLLs, verifies pinned dependencies, includes licenses, and validates each generated ZIP. The top-level `Unnamed-Schedule-I-Client.zip` contains both channels for offline switching. Both per-channel subdirectories include that same handout as `Unnamed-Schedule-I-Public-and-Beta.zip`, ready for release upload. Build from a clean reviewed commit so the manifest commit matches the binary source.
 
 Installer tests:
 
