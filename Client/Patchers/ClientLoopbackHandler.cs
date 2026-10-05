@@ -126,7 +126,7 @@ namespace DedicatedServerMod.Client.Patchers
 
             try
             {
-                player.SetVisibleToLocalPlayer(true);
+                ClientPlayerCompatibility.SetLocalVisibility(player, true);
                 if (player.Avatar != null)
                     player.Avatar.SetVisible(true);
                 DebugLog.Debug($"Loopback player made visible: {player.PlayerName ?? "Unknown"}");
@@ -144,7 +144,7 @@ namespace DedicatedServerMod.Client.Patchers
 
             DebugLog.Debug($"Hiding ghost host player presentation: {player.PlayerName ?? "Unknown"}");
 
-            player.SetVisibleToLocalPlayer(false);
+            ClientPlayerCompatibility.SetLocalVisibility(player, false);
 
             if (player.Avatar != null)
                 player.Avatar.SetVisible(false);

@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'DedicatedServerMod'">
+    <GameBranch Condition="'$(GameBranch)' == '' And $(Configuration.EndsWith('_Beta'))">Beta</GameBranch>
+    <GameBranch Condition="'$(GameBranch)' == ''">Public</GameBranch>
+    <ResolvedGameBranch Condition="'$(GameBranch)' == 'Beta'">Beta</ResolvedGameBranch>
+    <ResolvedGameBranch Condition="'$(ResolvedGameBranch)' == ''">Public</ResolvedGameBranch>
+    <!-- Set before SDK restore paths are calculated: branches must never share reference caches. -->
+    <BaseIntermediateOutputPath>obj/$(ResolvedGameBranch)/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+</Project>

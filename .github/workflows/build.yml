@@ -1,290 +1,92 @@
-name: Build and Test
+name: Build public and beta mods
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [main, dev, 'fix/**']
   pull_request:
-    branches: [ main, master, develop ]
+    branches: [main, dev]
   workflow_dispatch:
+  workflow_call:
     inputs:
-      assembly_branch:
-        description: "Assembly branch to use (main/master or beta)"
-        required: false
-        default: "main"
-        type: choice
-        options:
-          - main
-          - master
-          - beta
+      game_branch:
+        type: string
+        default: Both
+      source_ref:
+        type: string
+        default: ""
+
+permissions:
+  contents: read
 
 jobs:
   build:
+    name: Build ${{ matrix.branch }} ${{ matrix.runtime }} ${{ matrix.side }}
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: ${{ fromJSON(inputs.game_branch == 'Public' && '["Public"]' || inputs.game_branch == 'Beta' && '["Beta"]' || '["Public","Beta"]') }}
+        runtime: ${{ fromJSON(vars.S1DS_BUILD_RUNTIMES || '["Il2cpp"]') }}
+        side: [Client, Server]
     steps:
-      - name: Checkout DedicatedServerMod
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-
-      - name: Pin .NET SDK for CI
-        shell: bash
+          ref: ${{ inputs.source_ref || github.sha }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Check private reference configuration
+        shell: pwsh
+        env:
+          REFERENCE_REPOSITORY: ${{ vars.S1DS_ASSEMBLIES_REPO }}
+          HAS_REFERENCE_KEY: ${{ secrets.S1DS_ASSEMBLIES_SSH_KEY != '' }}
         run: |
-          cat > global.json << 'EOF'
-          {
-            "sdk": {
-              "version": "8.0.100",
-              "rollForward": "latestFeature"
-            }
+          if (!$env:REFERENCE_REPOSITORY -or $env:HAS_REFERENCE_KEY -ne 'true') {
+            throw 'Configure S1DS_ASSEMBLIES_REPO and the read-only S1DS_ASSEMBLIES_SSH_KEY. Fork PRs cannot access these references; maintainers must review and build them on a trusted branch.'
           }
-          EOF
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "8.0.x"
-
-      - name: Determine Assembly Branch
-        id: assembly-branch
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]] && [[ -n "${{ inputs.assembly_branch }}" ]]; then
-            requested_branch="${{ inputs.assembly_branch }}"
-          else
-            requested_branch="master"
-          fi
-
-          case "$requested_branch" in
-            main|master|beta)
-              ;;
-            *)
-              echo "Unsupported assembly branch: $requested_branch"
-              exit 1
-              ;;
-          esac
-
-          if [[ "$requested_branch" == "beta" ]]; then
-            mono_branch="beta"
-            il2cpp_branch="beta"
-          else
-            mono_branch="main"
-            il2cpp_branch="main"
-          fi
-
-          echo "mono_branch=$mono_branch" >> "$GITHUB_OUTPUT"
-          echo "il2cpp_branch=$il2cpp_branch" >> "$GITHUB_OUTPUT"
-          echo "Using Mono assemblies from $mono_branch and IL2CPP assemblies from $il2cpp_branch (requested: $requested_branch)"
-
-      - name: Restore Mono Assembly Cache
-        id: mono-cache
-        if: github.event_name == 'pull_request'
-        uses: actions/cache/restore@v4
-        with:
-          path: game-assemblies
-          key: mono-assemblies-v1-${{ steps.assembly-branch.outputs.mono_branch }}
-
-      - name: Restore IL2CPP Assembly Cache
-        id: il2cpp-cache
-        if: github.event_name == 'pull_request'
-        uses: actions/cache/restore@v4
-        with:
-          path: il2cpp-assemblies
-          key: il2cpp-assemblies-v1-${{ steps.assembly-branch.outputs.il2cpp_branch }}
-
-      - name: Checkout Mono Game Assemblies
+      - name: Checkout matching private game references
         uses: actions/checkout@v4
         with:
-          repository: ${{ secrets.GAME_ASSEMBLIES_REPO }}
-          token: ${{ secrets.GAME_ASSEMBLIES_TOKEN }}
-          ref: ${{ steps.assembly-branch.outputs.mono_branch }}
+          repository: ${{ vars.S1DS_ASSEMBLIES_REPO }}
+          ssh-key: ${{ secrets.S1DS_ASSEMBLIES_SSH_KEY }}
+          ref: ${{ matrix.branch == 'Beta' && 'beta' || 'public' }}
           path: game-assemblies
-          fetch-depth: 1
-        if: github.event_name != 'pull_request' || (steps.mono-cache.outputs.cache-hit != 'true' && github.event.pull_request.head.repo.full_name == github.repository)
-
-      - name: Checkout IL2CPP Game Assemblies
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ secrets.IL2CPP_ASSEMBLIES_REPO }}
-          token: ${{ secrets.IL2CPP_ASSEMBLIES_TOKEN }}
-          ref: ${{ steps.assembly-branch.outputs.il2cpp_branch }}
-          path: il2cpp-assemblies
-          fetch-depth: 1
-        if: github.event_name != 'pull_request' || (steps.il2cpp-cache.outputs.cache-hit != 'true' && github.event.pull_request.head.repo.full_name == github.repository)
-
-      - name: Verify Mono Assemblies
-        shell: bash
+          persist-credentials: false
+      - name: Configure matching references
+        shell: pwsh
+        env:
+          GAME_BRANCH: ${{ matrix.branch }}
+          MOD_RUNTIME: ${{ matrix.runtime }}
         run: |
-          set -euo pipefail
-
-          if [ -f "game-assemblies/Managed/Assembly-CSharp.dll" ]; then
-            echo "Found Mono Assembly-CSharp.dll"
-          else
-            echo "Missing Mono Assembly-CSharp.dll"
-            exit 1
-          fi
-
-          if [ -f "game-assemblies/MelonLoader/MelonLoader.dll" ]; then
-            echo "Found Mono MelonLoader.dll"
-          else
-            echo "Missing Mono MelonLoader.dll"
-            exit 1
-          fi
-
-      - name: Verify IL2CPP Assemblies
-        shell: bash
+          $root = Join-Path $env:GITHUB_WORKSPACE 'game-assemblies'
+          if ($env:MOD_RUNTIME -eq 'Mono') {
+            $managed = Join-Path $root 'Managed'
+            $loader = Join-Path $root 'MelonLoader/net35'
+            $paths = "<$($env:GAME_BRANCH)MonoAssembliesPath>$managed</$($env:GAME_BRANCH)MonoAssembliesPath><$($env:GAME_BRANCH)MonoMelonLoaderPath>$loader</$($env:GAME_BRANCH)MonoMelonLoaderPath>"
+          } else {
+            $managed = Join-Path $root 'MelonLoader/Il2CppAssemblies'
+            $loader = Join-Path $root 'MelonLoader/net6'
+            $paths = "<$($env:GAME_BRANCH)Il2CppAssembliesPath>$managed</$($env:GAME_BRANCH)Il2CppAssembliesPath><$($env:GAME_BRANCH)Il2CppMelonLoaderPath>$loader</$($env:GAME_BRANCH)Il2CppMelonLoaderPath>"
+          }
+          if (!(Test-Path "$managed/Assembly-CSharp.dll") -or !(Test-Path "$loader/MelonLoader.dll")) {
+            throw 'Matching game and MelonLoader references were not found. Beta never falls back to public references.'
+          }
+          "<Project><PropertyGroup><AutomateLocalDeployment>false</AutomateLocalDeployment>$paths</PropertyGroup></Project>" | Set-Content ci.build.props
+      - name: Build matching branch and side
+        run: dotnet build DedicatedServerMod.csproj -c ${{ matrix.runtime }}_${{ matrix.side }} -p:GameBranch=${{ matrix.branch }} -p:CustomAfterMicrosoftCommonTargets=.github/ci/il2cpp-publicizer.targets -v minimal
+      - name: Stage only distributable mod DLLs
+        shell: pwsh
+        env:
+          GAME_BRANCH: ${{ matrix.branch }}
+          MOD_RUNTIME: ${{ matrix.runtime }}
+          MOD_SIDE: ${{ matrix.side }}
         run: |
-          set -euo pipefail
-
-          il2cpp_assemblies_dir=""
-          if [ -d "il2cpp-assemblies/MelonLoader/Il2CppAssemblies" ]; then
-            il2cpp_assemblies_dir="il2cpp-assemblies/MelonLoader/Il2CppAssemblies"
-          elif [ -d "il2cpp-assemblies/Il2CppAssemblies" ]; then
-            il2cpp_assemblies_dir="il2cpp-assemblies/Il2CppAssemblies"
-          fi
-
-          il2cpp_net6_dir=""
-          if [ -d "il2cpp-assemblies/MelonLoader/net6" ]; then
-            il2cpp_net6_dir="il2cpp-assemblies/MelonLoader/net6"
-          elif [ -d "il2cpp-assemblies/net6" ]; then
-            il2cpp_net6_dir="il2cpp-assemblies/net6"
-          fi
-
-          if [ -z "$il2cpp_assemblies_dir" ]; then
-            echo "IL2CPP assemblies directory not found in il2cpp-assemblies checkout"
-            exit 1
-          fi
-
-          if [ -z "$il2cpp_net6_dir" ]; then
-            echo "IL2CPP net6 directory not found in il2cpp-assemblies checkout"
-            exit 1
-          fi
-
-          if [ -f "$il2cpp_assemblies_dir/Assembly-CSharp.dll" ]; then
-            echo "Found IL2CPP Assembly-CSharp.dll"
-          else
-            echo "Missing IL2CPP Assembly-CSharp.dll"
-            exit 1
-          fi
-
-          if [ -f "$il2cpp_net6_dir/MelonLoader.dll" ]; then
-            echo "Found IL2CPP MelonLoader.dll"
-          else
-            echo "Missing IL2CPP MelonLoader.dll"
-            exit 1
-          fi
-
-      - name: Save Mono Assembly Cache
-        if: always() && github.event_name == 'pull_request' && steps.mono-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+          $framework = if ($env:MOD_RUNTIME -eq 'Il2cpp') { 'net6.0' } else { 'netstandard2.1' }
+          $relative = "bin/$env:GAME_BRANCH/$($env:MOD_RUNTIME)_$env:MOD_SIDE/$framework"
+          New-Item -ItemType Directory -Path "artifact/$relative" -Force | Out-Null
+          Copy-Item "$relative/DedicatedServerMod_$($env:MOD_RUNTIME)_$env:MOD_SIDE.dll" "artifact/$relative/"
+      - uses: actions/upload-artifact@v4
         with:
-          path: game-assemblies
-          key: mono-assemblies-v1-${{ steps.assembly-branch.outputs.mono_branch }}
-
-      - name: Save IL2CPP Assembly Cache
-        if: always() && github.event_name == 'pull_request' && steps.il2cpp-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: il2cpp-assemblies
-          key: il2cpp-assemblies-v1-${{ steps.assembly-branch.outputs.il2cpp_branch }}
-
-      - name: Create Mono CI Build Properties
-        shell: bash
-        run: |
-          cat > ci.build.props << 'EOF'
-          <Project>
-              <PropertyGroup>
-                  <AutomateLocalDeployment>false</AutomateLocalDeployment>
-                  <MelonLoaderAssembliesPath>$(MSBuildThisFileDirectory)game-assemblies/MelonLoader</MelonLoaderAssembliesPath>
-                  <MonoAssembliesPath>$(MSBuildThisFileDirectory)game-assemblies/Managed</MonoAssembliesPath>
-              </PropertyGroup>
-          </Project>
-          EOF
-
-      - name: Restore Mono Dependencies
-        run: dotnet restore DedicatedServerMod.csproj -p:EffectiveConfiguration=Mono_Server
-
-      - name: Build Mono Server
-        run: dotnet build DedicatedServerMod.csproj --no-restore -c Mono_Server -v normal
-
-      - name: Build Mono Client
-        run: dotnet build DedicatedServerMod.csproj --no-restore -c Mono_Client -v normal
-
-      - name: Create IL2CPP CI Build Properties
-        shell: bash
-        run: |
-          cat > ci.build.props << 'EOF'
-          <Project>
-              <PropertyGroup>
-                  <AutomateLocalDeployment>false</AutomateLocalDeployment>
-                  <Il2CppGamePath>$(MSBuildThisFileDirectory)il2cpp-assemblies</Il2CppGamePath>
-              </PropertyGroup>
-          </Project>
-          EOF
-
-      - name: Configure Publicizer For IL2CPP
-        shell: bash
-        run: cp .github/ci/il2cpp-publicizer.targets Directory.Build.targets
-
-      - name: Remove Mono Assembly Trees Before IL2CPP Build
-        shell: bash
-        run: |
-          rm -rf game-assemblies ScheduleOneAssemblies
-
-      - name: Reset IL2CPP Restore State
-        shell: bash
-        run: |
-          rm -rf obj/Il2cpp_Server obj/Il2cpp_Client
-          rm -f obj/project.assets.json obj/*.nuget.g.props obj/*.nuget.g.targets
-
-      - name: Restore IL2CPP Dependencies
-        run: dotnet restore DedicatedServerMod.csproj -p:EffectiveConfiguration=Il2cpp_Server
-
-      - name: Build IL2CPP Server
-        run: dotnet build DedicatedServerMod.csproj --no-restore -c Il2cpp_Server -v normal
-
-      - name: Build IL2CPP Client
-        run: dotnet build DedicatedServerMod.csproj --no-restore -c Il2cpp_Client -v normal
-
-      - name: Remove Temporary IL2CPP Build Targets
-        if: always()
-        shell: bash
-        run: rm -f Directory.Build.targets
-
-      - name: Upload Mono Server Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: DedicatedServerMod-Mono-Server
-          path: bin/Mono_Server/netstandard2.1/*.dll
-
-      - name: Upload Mono Client Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: DedicatedServerMod-Mono-Client
-          path: bin/Mono_Client/netstandard2.1/*.dll
-
-      - name: Upload IL2CPP Server Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: DedicatedServerMod-Il2cpp-Server
-          path: bin/Il2cpp_Server/net6.0/*.dll
-
-      - name: Upload IL2CPP Client Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: DedicatedServerMod-Il2cpp-Client
-          path: bin/Il2cpp_Client/net6.0/*.dll
-
-  summary:
-    runs-on: ubuntu-latest
-    needs: [build]
-    if: always()
-    steps:
-      - name: Build Summary
-        run: |
-          echo "=== Build Complete ==="
-          echo "Mono Server: ${{ needs.build.result }}"
-          echo "Mono Client: ${{ needs.build.result }}"
-          echo "IL2CPP Server: ${{ needs.build.result }}"
-          echo "IL2CPP Client: ${{ needs.build.result }}"
+          name: DedicatedServerMod-${{ matrix.branch }}-${{ matrix.runtime }}-${{ matrix.side }}
+          path: artifact/
+          if-no-files-found: error

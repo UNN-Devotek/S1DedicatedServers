@@ -87,12 +87,20 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
         private static bool IsEligibleForFallback(NpcMovementType movement, out NpcType npc)
         {
             npc = null;
-            if (movement == null || movement.IsPaused || !movement.IsServerInitialized)
+            if (movement == null || !movement.IsServerInitialized
+#if !GAME_BETA
+                || movement.IsPaused
+#endif
+            )
             {
                 return false;
             }
 
+#if GAME_BETA
+            npc = movement._npc;
+#else
             npc = movement.npc;
+#endif
             if (npc == null ||
                 npc.Avatar == null ||
                 npc.Health == null ||
@@ -139,7 +147,11 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
             }
 
             var animation = npc.Avatar.Animation;
+#if GAME_BETA
+            var bones = animation != null ? animation._bones : null;
+#else
             var bones = animation != null ? animation.Bones : null;
+#endif
             if (bones == null || bones.Length == 0)
             {
                 invalidPose = "missing animation bones";

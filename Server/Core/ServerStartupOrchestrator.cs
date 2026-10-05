@@ -666,7 +666,11 @@ namespace DedicatedServerMod.Server.Core
                     p.gameObject.name = Constants.GhostHostObjectName;
                     PlayerGameCompatibility.SetHasCompletedIntro(p, true);
                     p.SetVisible(false, network: true);
+#if GAME_BETA
+                    p.SetVisible(false, network: false);
+#else
                     p.SetVisibleToLocalPlayer(false);
+#endif
                     var mv = p.GetComponent<PlayerMovement>();
                     if (mv != null) mv.Teleport(new Vector3(16.456f, 31.176f, -165.366f));
                     else p.transform.position = new Vector3(16.456f, 31.176f, -165.366f);
@@ -777,9 +781,18 @@ namespace DedicatedServerMod.Server.Core
                 }
 
                 playerData.IntroCompleted = true;
+#if GAME_BETA
+                // Beta's native data request constructs FullPlayerData (inventory, appearance, clothing and variables).
+                ScheduleOne.PlayerScripts.Player.Local.RequestPlayerData_Server(playerData.PlayerCode, isHost: true);
+#else
                 ScheduleOne.PlayerScripts.Player.Local.Load(playerData, player0Dir);
+#endif
                 PlayerGameCompatibility.SetHasCompletedIntro(ScheduleOne.PlayerScripts.Player.Local, true);
+#if GAME_BETA
+                DebugLog.StartupDebug("Requested native loopback FullPlayerData from Player_0 before onLoadComplete.");
+#else
                 DebugLog.StartupDebug("Loopback host data loaded directly from Player_0 before onLoadComplete.");
+#endif
             }
             catch (Exception ex)
             {

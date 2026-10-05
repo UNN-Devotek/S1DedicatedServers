@@ -1,3 +1,16 @@
+#if GAME_BETA
+#if IL2CPP
+using SleepMenuType = Il2CppScheduleOne.UI.SleepMenu;
+#else
+using SleepMenuType = ScheduleOne.UI.SleepMenu;
+#endif
+#else
+#if IL2CPP
+using SleepMenuType = Il2CppScheduleOne.UI.SleepCanvas;
+#else
+using SleepMenuType = ScheduleOne.UI.SleepCanvas;
+#endif
+#endif
 #if CLIENT
 using System.Reflection;
 using DedicatedServerMod.Client.Core;
@@ -42,7 +55,13 @@ namespace DedicatedServerMod.Client.Patches
                 return;
             }
 
-            MethodInfo sleepStartMethod = AccessTools.Method(typeof(SleepCanvas), "SleepStart");
+            MethodInfo sleepStartMethod = AccessTools.Method(typeof(SleepMenuType),
+#if GAME_BETA
+                "OnSleepStart"
+#else
+                "SleepStart"
+#endif
+);
             MethodInfo rankUpStartEventMethod = AccessTools.Method(typeof(RankUpCanvas), nameof(RankUpCanvas.StartEvent));
             MethodInfo dailySummaryCloseMethod = AccessTools.Method(typeof(DailySummary), nameof(DailySummary.Close));
             if (sleepStartMethod == null || ClearStatsMethod == null || rankUpStartEventMethod == null ||

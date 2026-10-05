@@ -7,6 +7,7 @@ using BrandishingWeaponType = Il2CppScheduleOne.Law.BrandishingWeapon;
 using DischargeFirearmType = Il2CppScheduleOne.Law.DischargeFirearm;
 using DrugTraffickingType = Il2CppScheduleOne.Law.DrugTrafficking;
 using NpcResponsesPoliceType = Il2CppScheduleOne.Police.NPCResponses_Police;
+using NpcResponsesType = Il2CppScheduleOne.NPCs.Responses.NPCResponses;
 using PlayerCrimeDataType = Il2CppScheduleOne.PlayerScripts.PlayerCrimeData;
 using PlayerType = Il2CppScheduleOne.PlayerScripts.Player;
 using PoliceOfficerType = Il2CppScheduleOne.Police.PoliceOfficer;
@@ -22,6 +23,7 @@ using BrandishingWeaponType = ScheduleOne.Law.BrandishingWeapon;
 using DischargeFirearmType = ScheduleOne.Law.DischargeFirearm;
 using DrugTraffickingType = ScheduleOne.Law.DrugTrafficking;
 using NpcResponsesPoliceType = ScheduleOne.Police.NPCResponses_Police;
+using NpcResponsesType = ScheduleOne.NPCs.Responses.NPCResponses;
 using PlayerCrimeDataType = ScheduleOne.PlayerScripts.PlayerCrimeData;
 using PlayerType = ScheduleOne.PlayerScripts.Player;
 using PoliceOfficerType = ScheduleOne.Police.PoliceOfficer;
@@ -36,7 +38,7 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
 {
     internal static class DedicatedPoliceResponseAuthority
     {
-        internal static bool TryGetOfficer(NpcResponsesPoliceType responses, out PoliceOfficerType officer)
+        internal static bool TryGetOfficer(NpcResponsesType responses, out PoliceOfficerType officer)
         {
             officer = UnityComponentAccess.GetComponentInParent<PoliceOfficerType>(responses);
             return officer != null;
@@ -298,10 +300,15 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
         }
     }
 
+#if GAME_BETA
+    // Beta inherits this callback from NPCResponses instead of declaring a police override.
+    [HarmonyPatch(typeof(NpcResponsesType), "HitByCar")]
+#else
     [HarmonyPatch(typeof(NpcResponsesPoliceType), "HitByCar")]
+#endif
     internal static class PoliceResponseHitByCarPatches
     {
-        private static void Postfix(NpcResponsesPoliceType __instance, LandVehicleType vehicle)
+        private static void Postfix(NpcResponsesType __instance, LandVehicleType vehicle)
         {
             PlayerType player = vehicle?.DriverPlayer;
             if (!DedicatedPoliceResponseAuthority.TryGetOfficer(__instance, out PoliceOfficerType officer)

@@ -339,3 +339,11 @@ skills-lock.json
 
 # Local real-game harnesses and install-specific repro scripts.
 tests/Run-*RealGameTest.ps1
+
+# Installer caches and generated bundles.
+__pycache__/
+*.pyc
+packaging/Installer/.downloads/
+packaging/Installer/.runtime*/
+packaging/Installer/Dependencies/
+packaging/Installer/Packages/

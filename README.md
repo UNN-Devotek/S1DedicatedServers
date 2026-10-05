@@ -1,3 +1,5 @@
+> **Unnamed fork:** [Public/beta releases](https://github.com/UNN-Devotek/S1DedicatedServers/releases) include an installer, uninstaller, and channel switching. [Player setup](packaging/Installer/START-HERE.md) · [Build/release guide](build/RELEASING.md). Development happens on `dev`; protected `main` supplies tagged releases.
+
 # S1DS - S1 DedicatedServerMod
 
 [![Build and Test](https://github.com/ifBars/S1DedicatedServers/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/ifBars/S1DedicatedServers/actions/workflows/build.yml)

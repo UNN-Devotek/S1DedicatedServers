@@ -637,6 +637,8 @@ namespace DedicatedServerMod.Shared.Permissions
                     return PermissionBuiltIns.Nodes.ServerInfo;
                 case "save":
                     return PermissionBuiltIns.Nodes.ServerSave;
+                case "broadcast":
+                    return PermissionBuiltIns.Nodes.ServerBroadcast;
                 case "reloadconfig":
                     return PermissionBuiltIns.Nodes.ServerReloadConfig;
                 case "shutdown":

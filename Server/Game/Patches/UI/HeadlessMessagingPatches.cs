@@ -51,7 +51,11 @@ namespace DedicatedServerMod.Server.Game.Patches.UI
                 message.messageId = UnityEngine.Random.Range(int.MinValue, int.MaxValue);
             }
 
+            #if GAME_BETA
+            MessageListType history = conversation._messageHistory;
+#else
             MessageListType history = conversation.messageHistory;
+#endif
             if (ContainsMessage(history, message.messageId))
             {
                 return;
@@ -74,14 +78,22 @@ namespace DedicatedServerMod.Server.Game.Patches.UI
                 chain.id = UnityEngine.Random.Range(int.MinValue, int.MaxValue);
             }
 
+            #if GAME_BETA
+            MessageChainListType chainHistory = conversation._messageChainHistory;
+#else
             MessageChainListType chainHistory = conversation.messageChainHistory;
+#endif
             if (ContainsMessageChain(chainHistory, chain.id))
             {
                 return;
             }
 
             chainHistory.Add(chain);
+            #if GAME_BETA
+            MessageListType messageHistory = conversation._messageHistory;
+#else
             MessageListType messageHistory = conversation.messageHistory;
+#endif
             for (int i = 0; i < chain.Messages.Count; i++)
             {
                 bool isLastMessage = i == chain.Messages.Count - 1;
@@ -114,7 +126,11 @@ namespace DedicatedServerMod.Server.Game.Patches.UI
                 return;
             }
 
+            #if GAME_BETA
+            bool conversationCanBeHidden = conversation._sender.CanConversationBeHidden;
+#else
             bool conversationCanBeHidden = conversation.sender?.NPCData?.Messaging?.ConversationCanBeHidden == true;
+#endif
             if (ConversationEntryVisibilityPolicy.ShouldApply(visible, conversationCanBeHidden))
             {
                 conversation.EntryVisible = visible;
@@ -136,7 +152,11 @@ namespace DedicatedServerMod.Server.Game.Patches.UI
 
             if (network)
             {
+                #if GAME_BETA
+                NetworkSingleton<MessagingManagerType>.Instance.ClearResponses_Client(conversation.ConversationId);
+#else
                 NetworkSingleton<MessagingManagerType>.Instance.ClearResponses(conversation.sender.ID);
+#endif
             }
         }
 

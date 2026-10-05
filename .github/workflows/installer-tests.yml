@@ -1,0 +1,39 @@
+name: Installer and announcement checks
+on:
+  push:
+    branches: [main, dev, 'fix/**']
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  installer:
+    name: Installer tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m unittest discover -s tests/InstallerTests -v
+      - name: Exercise native Windows bootstrap and channel switching
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: ./tests/InstallerTests/Test-WindowsBootstrap.ps1
+      - name: Check Linux launcher syntax
+        if: runner.os == 'Linux'
+        run: bash -n packaging/Installer/Install-Linux.sh packaging/Installer/Uninstall-Linux.sh
+  announcements:
+    name: Announcement regression checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet run --project tests/ServerAnnouncementTests

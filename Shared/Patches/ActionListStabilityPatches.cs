@@ -55,23 +55,29 @@ namespace DedicatedServerMod.Shared.Patches
                 return false;
             }
 
-            MelonCoroutines.Start(InvokeSnapshotStaggered(snapshot, staggerTime));
+            MelonCoroutines.Start(InvokeSnapshotStaggered(__instance, snapshot, staggerTime, SceneCallbackLifetime.Generation));
             return false;
         }
 
-        private static IEnumerator InvokeSnapshotStaggered(IReadOnlyList<ActionType> snapshot, float staggerTime)
+        private static IEnumerator InvokeSnapshotStaggered(ActionListType source, IReadOnlyList<ActionType> snapshot, float staggerTime, long generation)
         {
             float delay = snapshot.Count > 0 ? Mathf.Max(0f, staggerTime) / snapshot.Count : 0f;
 
             for (int i = 0; i < snapshot.Count; i++)
             {
-                if (ShouldAbortStaggeredInvocation())
+                if (!SceneCallbackLifetime.IsCurrent(generation) || ShouldAbortStaggeredInvocation())
                 {
                     yield break;
                 }
 
                 try
                 {
+                    // Cleanup/unsubscription can occur while a stagger delay is pending.
+                    // A snapshot must not keep a destroyed subscriber alive for invocation.
+                    if (source?.list == null || !source.list.Contains(snapshot[i]))
+                    {
+                        continue;
+                    }
                     snapshot[i]?.Invoke();
                 }
                 catch (Exception ex)

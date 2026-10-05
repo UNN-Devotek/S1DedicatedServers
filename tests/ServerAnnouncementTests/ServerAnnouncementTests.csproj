@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <Compile Include="../../Server/Commands/BuiltIn/System/BroadcastCommand.cs" Link="BroadcastCommand.cs" />
+    <Compile Include="../../Server/Commands/Contracts/*.cs" Link="Contracts/%(Filename)%(Extension)" />
+    <Compile Include="../../Server/Commands/Execution/CommandContext.cs" Link="CommandContext.cs" />
+    <Compile Include="../../Server/Commands/Output/ICommandOutput.cs" Link="ICommandOutput.cs" />
+    <Compile Include="../../Server/Commands/Output/ICommandReplyChannel.cs" Link="ICommandReplyChannel.cs" />
+    <Compile Include="../../Server/Commands/Output/CommandReplyLine.cs" Link="CommandReplyLine.cs" />
+    <Compile Include="../../Server/Commands/Output/CommandReplyLevel.cs" Link="CommandReplyLevel.cs" />
+    <Compile Include="../../Server/Permissions/PermissionDefaults.cs" Link="PermissionDefaults.cs" />
+    <Compile Include="../../Shared/Permissions/PermissionModels.cs" Link="PermissionModels.cs" />
+    <Compile Include="../../Shared/Permissions/PermissionNode.cs" Link="PermissionNode.cs" />
+    <Compile Include="../../Shared/Console/CommandLineParser.cs" Link="CommandLineParser.cs" />
+    <Compile Include="../../Shared/Networking/ServerAnnouncementMessage.cs" Link="ServerAnnouncementMessage.cs" />
+    <Compile Include="../../Client/Managers/ClientAnnouncementHandler.cs" Link="ClientAnnouncementHandler.cs" />
+    <Compile Include="../../API/Version.cs" Link="Version.cs" />
+    <Compile Include="../../Utils/Constants.cs" Link="Constants.cs" />
+  </ItemGroup>
+</Project>

@@ -1,3 +1,12 @@
+#if GAME_BETA && IL2CPP
+using SleepOwnerType = Il2CppScheduleOne.GameTime.SleepController;
+#elif GAME_BETA
+using SleepOwnerType = ScheduleOne.GameTime.SleepController;
+#elif IL2CPP
+using SleepOwnerType = Il2CppScheduleOne.GameTime.TimeManager;
+#else
+using SleepOwnerType = ScheduleOne.GameTime.TimeManager;
+#endif
 using HarmonyLib;
 using DedicatedServerMod.Server.Core;
 using DedicatedServerMod.Server.Game.Patches.Common;
@@ -61,7 +70,7 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
             }
 
             var loadManager = Singleton<LoadManagerType>.Instance;
-            if (loadManager == null || loadManager.IsLoading || !loadManager.IsGameLoaded || __instance.IsSleepInProgress)
+            if (loadManager == null || loadManager.IsLoading || !loadManager.IsGameLoaded || SleepRuntime.IsSleepInProgress)
             {
                 return;
             }
@@ -111,7 +120,7 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
     }
     */
 
-    [HarmonyPatch(typeof(TimeManagerType), nameof(TimeManagerType.StartSleep))]
+    [HarmonyPatch(typeof(SleepOwnerType), "StartSleep")]
     internal static class TimeManagerStartSleepPatches
     {
         private static bool Prefix()
@@ -125,27 +134,39 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
         }
     }
 
-    [HarmonyPatch(typeof(TimeManagerType), nameof(TimeManagerType.StartSleep))]
+    [HarmonyPatch(typeof(SleepOwnerType), "StartSleep")]
     internal static class TimeManagerStartSleepHeadlessPatches
     {
-        private static void Postfix(TimeManagerType __instance)
+        private static void Postfix(SleepOwnerType __instance)
         {
             ForceHeadlessHostSleepDone(__instance);
         }
 
-        public static void ForceHeadlessHostSleepDone(TimeManagerType __instance)
+        public static void ForceHeadlessHostSleepDone(SleepOwnerType __instance)
         {
             if (!InstanceFinder.IsServer || !DedicatedServerPatchCommon.IsDedicatedHeadlessServer())
             {
                 return;
             }
 
-            if (__instance == null || !__instance.IsSleepInProgress || __instance.HostSleepDone)
+            if (__instance == null || !__instance.IsSleepInProgress)
+            {
+                return;
+            }
+#if GAME_BETA
+            if (__instance.IsHostReadyToProceed)
+#else
+            if (__instance.HostSleepDone)
+#endif
             {
                 return;
             }
 
+#if GAME_BETA
+            __instance.IsHostReadyToProceed = true;
+#else
             __instance.SetHostSleepDone(done: true);
+#endif
         }
     }
 }

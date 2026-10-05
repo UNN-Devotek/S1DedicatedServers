@@ -2,20 +2,19 @@ name: Build and Deploy Documentation
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ main, dev ]
   pull_request:
-    branches: [ main, master, develop ]
+    branches: [ main, dev ]
   workflow_dispatch:
     inputs:
       assembly_branch:
-        description: "Assembly branch to use (main/master or beta)"
+        description: "Public Mono assembly branch"
         required: false
         default: "main"
         type: choice
         options:
           - main
           - master
-          - beta
 
 permissions:
   contents: read
@@ -26,6 +25,9 @@ concurrency:
 
 jobs:
   build:
+    # The inherited Mono API/Cloudflare site is optional for this fork.
+    # Enable only after supplying its Mono references and deployment credentials.
+    if: vars.S1DS_DOCS_ENABLED == 'true'
     runs-on: windows-latest
     steps:
       - name: Checkout DedicatedServerMod
@@ -64,7 +66,7 @@ jobs:
           fi
 
           case "$requested_branch" in
-            main|master|beta)
+            main|master)
               ;;
             *)
               echo "Unsupported assembly branch: $requested_branch"
@@ -72,11 +74,7 @@ jobs:
               ;;
           esac
 
-          if [[ "$requested_branch" == "beta" ]]; then
-            game_branch="beta"
-          else
-            game_branch="main"
-          fi
+          game_branch="main"
 
           echo "game_branch=$game_branch" >> "$GITHUB_OUTPUT"
           echo "Using Mono assemblies from $game_branch (requested: $requested_branch)"

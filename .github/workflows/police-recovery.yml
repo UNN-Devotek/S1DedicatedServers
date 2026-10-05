@@ -12,6 +12,13 @@ on:
       - 'Utils/SafeReflection.cs'
       - 'DedicatedServerMod.csproj'
       - 'tests/ReportingCollectorTests/**'
+      - 'Client/Patches/ClientRuntimeStabilityPatches.cs'
+      - 'Client/Patches/NpcBuildingEntryPatches.cs'
+      - 'tests/NpcBuildingEntryTests/**'
+      - 'Shared/Patches/ActionListStabilityPatches.cs'
+      - 'Shared/Patches/SceneCallbackPatches.cs'
+      - 'Utils/SceneCallbackLifetime.cs'
+      - 'tests/SceneCallbackTests/**'
       - '.github/workflows/police-recovery.yml'
   pull_request:
     paths:
@@ -24,6 +31,13 @@ on:
       - 'Utils/SafeReflection.cs'
       - 'DedicatedServerMod.csproj'
       - 'tests/ReportingCollectorTests/**'
+      - 'Client/Patches/ClientRuntimeStabilityPatches.cs'
+      - 'Client/Patches/NpcBuildingEntryPatches.cs'
+      - 'tests/NpcBuildingEntryTests/**'
+      - 'Shared/Patches/ActionListStabilityPatches.cs'
+      - 'Shared/Patches/SceneCallbackPatches.cs'
+      - 'Utils/SceneCallbackLifetime.cs'
+      - 'tests/SceneCallbackTests/**'
       - '.github/workflows/police-recovery.yml'
   workflow_dispatch:
 
@@ -57,3 +71,29 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Exercise current-game feedback collector guard
         run: dotnet run --project tests/ReportingCollectorTests -p:RuntimeDefine=${{ matrix.runtime }} -p:SideDefine=${{ matrix.side }}
+
+  building-entry:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runtime: [MONO, IL2CPP]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Exercise NPC building-entry guard registration and validation
+        run: dotnet run --project tests/NpcBuildingEntryTests -p:RuntimeDefine=${{ matrix.runtime }}
+
+  scene-callbacks:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runtime: [MONO, IL2CPP]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Exercise scene cleanup and callback unsubscription
+        run: dotnet run --project tests/SceneCallbackTests -p:RuntimeDefine=${{ matrix.runtime }}

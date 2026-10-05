@@ -144,6 +144,12 @@ namespace DedicatedServerMod.Shared.Networking
                     HandleClientConsoleCommand(data);
                     break;
 
+                case Constants.Messages.ServerAnnouncement:
+#if CLIENT
+                    DedicatedServerMod.Client.Managers.ClientAnnouncementHandler.Handle(data);
+#endif
+                    break;
+
                 case Constants.Messages.AuthChallenge:
                 case Constants.Messages.AuthResult:
                 case Constants.Messages.ModVerifyChallenge:
@@ -691,4 +697,3 @@ namespace DedicatedServerMod.Shared.Networking
         #endregion
     }
 }
-

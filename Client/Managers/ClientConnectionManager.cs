@@ -369,7 +369,7 @@ namespace DedicatedServerMod.Client.Managers
             float dataWaitStart = Time.realtimeSinceStartup;
             yield return new WaitUntil((System.Func<bool>)(() =>
                 ShouldAbortJoinSequence(joinAttemptId) ||
-                Player.Local == null || Player.Local.playerDataRetrieveReturned));
+                Player.Local == null || ClientPlayerCompatibility.HasReceivedData(Player.Local)));
 
             if (ShouldAbortJoinSequence(joinAttemptId))
             {
@@ -444,6 +444,7 @@ namespace DedicatedServerMod.Client.Managers
 
         private static void RunLoadManagerCleanUp(LoadManager loadManager)
         {
+            SceneCallbackLifetime.Invalidate();
             bool reflectedCleanUpSucceeded = false;
             if (CleanUpMethod != null)
             {
@@ -486,7 +487,9 @@ namespace DedicatedServerMod.Client.Managers
             TryClearLoadState("Property.OwnedProperties.Clear", () => Property.OwnedProperties.Clear());
             TryClearLoadState("Property.UnownedProperties.Clear", () => Property.UnownedProperties.Clear());
             TryClearLoadState("PlayerMovement.StaticMoveSpeedMultiplier", () => PlayerMovement.StaticMoveSpeedMultiplier = 1f);
+#if !GAME_BETA
             TryClearLoadState("AvatarLookController.TempContainer", () => AvatarLookController.TempContainer = null);
+#endif
             TryClearLoadState("Customer.onCustomerUnlocked", () => Customer.onCustomerUnlocked = null);
             TryClearLoadState("Customer.UnlockedCustomers.Clear", () => Customer.UnlockedCustomers.Clear());
             TryClearLoadState("Customer.LockedCustomers.Clear", () => Customer.LockedCustomers.Clear());
@@ -597,7 +600,7 @@ namespace DedicatedServerMod.Client.Managers
             }
 
             var localPlayer = Player.Local;
-            if (localPlayer == null || localPlayer.playerDataRetrieveReturned)
+            if (localPlayer == null || ClientPlayerCompatibility.HasReceivedData(localPlayer))
             {
                 yield break;
             }
@@ -625,7 +628,7 @@ namespace DedicatedServerMod.Client.Managers
             {
                 if (!InstanceFinder.IsServer)
                 {
-                    localPlayer.RequestPlayerData(steamIdText);
+                    ClientPlayerCompatibility.RequestData(localPlayer, steamIdText);
                     DebugLog.PlayerLifecycleDebug($"Requested player data after identity recovery for SteamID {steamIdText}");
                 }
             }
@@ -637,8 +640,12 @@ namespace DedicatedServerMod.Client.Managers
 
         private static void SendPlayerNameData(Player localPlayer, string playerName, ulong steamId, string steamIdText)
         {
+#if GAME_BETA
+            localPlayer.SetPlayerNameAndId_Server(playerName, steamIdText);
+            return;
+#else
             var methods = typeof(Player).GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                .Where(method => method.Name == nameof(Player.SendPlayerNameData));
+                .Where(method => method.Name == "SendPlayerNameData");
 
             foreach (var method in methods)
             {
@@ -662,6 +669,7 @@ namespace DedicatedServerMod.Client.Managers
             }
 
             throw new MissingMethodException(typeof(Player).FullName, "SendPlayerNameData");
+#endif
         }
 
         private static string ResolveSteamPersonaName(Player localPlayer)

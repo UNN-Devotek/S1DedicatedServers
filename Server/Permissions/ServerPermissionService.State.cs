@@ -18,6 +18,7 @@ namespace DedicatedServerMod.Server.Permissions
             ["help"] = PermissionBuiltIns.Nodes.ServerHelp,
             ["serverinfo"] = PermissionBuiltIns.Nodes.ServerInfo,
             ["save"] = PermissionBuiltIns.Nodes.ServerSave,
+            ["broadcast"] = PermissionBuiltIns.Nodes.ServerBroadcast,
             ["reloadconfig"] = PermissionBuiltIns.Nodes.ServerReloadConfig,
             ["shutdown"] = PermissionBuiltIns.Nodes.ServerStop,
             ["listplayers"] = PermissionBuiltIns.Nodes.PlayerList,
