@@ -6,6 +6,8 @@ Public repository: **UNN-Devotek/S1DedicatedServers**. `main` is the protected r
 
 Pushes to main/dev and pull requests targeting them build Public/Beta × IL2CPP × Client/Server. They also run installer regressions on Linux/Windows, the native Windows bootstrap smoke test, announcement checks, and existing gameplay regression workflows when relevant.
 
+Linux launcher regressions execute the shipping Bash/Python scripts against temporary games and controlled Protontricks commands, covering the menu, native/Flatpak tools, an existing loader, failed prerequisite setup, checksum rejection, channel switching and uninstall. CI does not run a real Steam/Proton gameplay session.
+
 Repository variable `S1DS_ASSEMBLIES_REPO` names the private reference repository. Secret `S1DS_ASSEMBLIES_SSH_KEY` is its read-only deploy key. Reference branches are `public` and `beta`, with `MelonLoader/Il2CppAssemblies` and `MelonLoader/net6`.
 
 `S1DS_BUILD_RUNTIMES` defaults to `["Il2cpp"]`. Set it to `["Il2cpp","Mono"]` after supplying real matching `Managed` and `MelonLoader/net35` directories on both reference branches. Public and beta never share/fall back to the wrong game assemblies. Untrusted fork PRs cannot access the private checkout; maintainers should review them and build the reviewed changes on a trusted branch.

@@ -22,7 +22,15 @@ Install the [.NET 6 Desktop Runtime for Windows x64](https://dotnet.microsoft.co
 
 ## Linux / Steam Deck
 
-Use the Windows game through Proton. Launch it once, then close it. Install Python 3.10+ and Protontricks; native and Flatpak Protontricks are supported. Extract the ZIP and run:
+Use the Windows game through Proton. In Steam, select the matching public/beta game branch, launch it once, then close it. Use **Desktop Mode** on Steam Deck. Install Python 3.10+ and [Protontricks](https://github.com/Matoking/protontricks); on Steam Deck, install Protontricks from **Discover**. Native and Flatpak Protontricks are supported.
+
+Extract the entire ZIP, open a terminal in the extracted folder, and run:
+
+```bash
+bash Install-Linux.sh
+```
+
+The menu installs/updates Public or Beta, uninstalls, or shows the installed version. Paste the game folder from Steam's **Manage → Browse local files**. In the full Client ZIP, choose **Use bundled files** to install the included mod files. To select a channel directly:
 
 ```bash
 bash Install-Linux.sh '/path/to/Schedule I' public
@@ -31,7 +39,15 @@ bash Install-Linux.sh '/path/to/Schedule I' beta
 bash Install-Linux.sh '/path/to/Schedule I' public --offline
 ```
 
-For a new loader installation the launcher installs the .NET runtime and sets the Proton DLL override. An existing compatible MelonLoader installation is reused.
+The launcher verifies the selected downloads and game before preparing Proton. It ensures the game's .NET 6 Desktop Runtime and MelonLoader DLL override are configured even when loader files already exist, following [MelonLoader's Linux instructions](https://github.com/LavaGang/MelonWiki/blob/master/docs/gettingstarted.md). An existing compatible MelonLoader installation is reused. Flatpak Protontricks receives access to the selected Steam library for that invocation, including external drives/SD cards; permanent Flatpak permissions are not changed.
+
+The bundled/offline option supplies mod and MelonLoader files. A **first-time .NET installation through Protontricks still needs internet**; prepare the game's Proton runtime while online before installing offline. Runtime and DLL override setup failures stop before any mod files are installed. Launch the game normally through Steam afterward.
+
+To download the latest beta files without installing them:
+
+```bash
+python3 s1ds_installer.py download --channel beta
+```
 
 ## Uninstall
 
@@ -60,5 +76,5 @@ If you used the old installer, run this updated installer once to create its rec
 - An existing compatible MelonLoader is reused to preserve other mods.
 - Checksum failures stop installation; download a fresh ZIP instead of disabling validation.
 - Interrupted file changes roll back. Installer backups and receipts live in `.s1ds-installer` inside the game folder.
-- To install a specific version, use `-ReleaseTag public-v1.1.0-unn.1` on Windows or `--tag public-v1.1.0-unn.1` with `s1ds_installer.py`.
+- To install a specific version, use `-ReleaseTag public-v1.1.0-unn.2` on Windows or `--tag public-v1.1.0-unn.2` on Linux.
 - Mono/client/server selection is available in the command-line engine when those packages exist in the selected release. These initial releases provide IL2CPP client/server builds.
