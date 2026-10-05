@@ -6,7 +6,6 @@ using DedicatedServerMod.Server.Commands.Execution;
 using DedicatedServerMod.Server.Core;
 using DedicatedServerMod.Server.Network;
 using DedicatedServerMod.Server.Player;
-using UnityEngine;
 using ServerPlayerManager = DedicatedServerMod.Server.Player.PlayerManager;
 using ServerPlayerInfo = DedicatedServerMod.Server.Player.ConnectedPlayerInfo;
 #endif
@@ -29,10 +28,8 @@ using Il2CppScheduleOne;
 using Il2CppScheduleOne.DevUtilities;
 using Il2CppScheduleOne.PlayerScripts;
 using Il2CppScheduleOne.UI;
-using Il2CppScheduleOne.Vehicles;
 #else
 using ScheduleOne.DevUtilities;
-using ScheduleOne.Vehicles;
 using Newtonsoft.Json;
 using ScheduleOne.PlayerScripts;
 #endif
@@ -338,13 +335,6 @@ namespace DedicatedServerMod.Shared.Networking
                     return;
                 }
 
-                if (cmd == "spawnvehicle")
-                {
-                    HandleSpawnVehicleCommand(player, parsedCommand);
-                    ServerBootstrap.Permissions?.LogCommand(playerInfo, cmd, succeeded: true, "spawnvehicle");
-                    return;
-                }
-
                 ExecuteConsoleCommandRelay(playerInfo, player, parsedCommand);
             }
             catch (Exception ex)
@@ -353,51 +343,6 @@ namespace DedicatedServerMod.Shared.Networking
             }
         }
 
-        /// <summary>
-        /// Handles the spawnvehicle command server-side for proper ownership.
-        /// </summary>
-        private static void HandleSpawnVehicleCommand(Player player, ParsedCommandLine parsedCommand)
-        {
-            try
-            {
-                if (parsedCommand.Arguments.Count == 0)
-                {
-                    LogCommandError("Unrecognized command format. Correct format example(s): 'spawnvehicle shitbox'");
-                    return;
-                }
-
-                string vehicleCode = parsedCommand.Arguments[0].ToLowerInvariant();
-                var vm = NetworkSingleton<VehicleManager>.Instance;
-                if (vm == null)
-                {
-                    DebugLog.Error("HandleSpawnVehicleCommand: VehicleManager instance not found on server");
-                    return;
-                }
-
-                if (vm.GetVehiclePrefab(vehicleCode) == null)
-                {
-                    LogCommandError($"Unrecognized vehicle code '{vehicleCode}'");
-                    return;
-                }
-
-                Vector3 position = player.transform.position + player.transform.forward * 4f + player.transform.up * 1f;
-                Quaternion rotation = player.transform.rotation;
-                var spawned = vm.SpawnAndReturnVehicle(vehicleCode, position, rotation, playerOwned: true);
-
-                if (spawned != null)
-                {
-                    DebugLog.MessageRoutingDebug($"Spawned vehicle '{vehicleCode}' for player {player.PlayerName}");
-                }
-                else
-                {
-                    DebugLog.Warning("HandleSpawnVehicleCommand: SpawnAndReturnVehicle returned null");
-                }
-            }
-            catch (Exception ex)
-            {
-                DebugLog.Error($"HandleSpawnVehicleCommand: Error spawning vehicle server-side: {ex}");
-            }
-        }
 #endif
 
         /// <summary>

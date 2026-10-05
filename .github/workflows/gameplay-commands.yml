@@ -1,0 +1,21 @@
+name: Gameplay console command checks
+on:
+  push:
+    paths: ['Server/Commands/**', 'Shared/Networking/MessageRouter.cs', 'Shared/Permissions/**', 'tests/GameplayCommandTests/**', '.github/workflows/gameplay-commands.yml']
+  pull_request:
+    paths: ['Server/Commands/**', 'Shared/Networking/MessageRouter.cs', 'Shared/Permissions/**', 'tests/GameplayCommandTests/**', '.github/workflows/gameplay-commands.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  gameplay-commands:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runtime: [MONO, IL2CPP]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet run --project tests/GameplayCommandTests -p:RuntimeDefine=${{ matrix.runtime }}
