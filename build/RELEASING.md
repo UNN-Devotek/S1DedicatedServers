@@ -10,6 +10,8 @@ Repository variable `S1DS_ASSEMBLIES_REPO` names the private reference repositor
 
 `S1DS_BUILD_RUNTIMES` defaults to `["Il2cpp"]`. Set it to `["Il2cpp","Mono"]` after supplying real matching `Managed` and `MelonLoader/net35` directories on both reference branches. Public and beta never share/fall back to the wrong game assemblies. Untrusted fork PRs cannot access the private checkout; maintainers should review them and build the reviewed changes on a trusted branch.
 
+The inherited Mono API/Cloudflare documentation deployment is opt-in through `S1DS_DOCS_ENABLED=true`; it also requires its original Mono reference and Cloudflare credentials. It is disabled in this fork while only IL2CPP references are supplied. Repository Markdown setup/release documentation remains available.
+
 ## Tag a release
 
 1. Update `API/Version.cs` and relevant number constants in dev. The fork starts at **1.1.0-unn.1**.

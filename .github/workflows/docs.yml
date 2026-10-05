@@ -2,9 +2,9 @@ name: Build and Deploy Documentation
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ main, dev ]
   pull_request:
-    branches: [ main, master, develop ]
+    branches: [ main, dev ]
   workflow_dispatch:
     inputs:
       assembly_branch:
@@ -25,6 +25,9 @@ concurrency:
 
 jobs:
   build:
+    # The inherited Mono API/Cloudflare site is optional for this fork.
+    # Enable only after supplying its Mono references and deployment credentials.
+    if: vars.S1DS_DOCS_ENABLED == 'true'
     runs-on: windows-latest
     steps:
       - name: Checkout DedicatedServerMod
