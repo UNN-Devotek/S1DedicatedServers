@@ -61,12 +61,16 @@ dotnet run --project tests/ServerAnnouncementTests
 
 On Windows, run `powershell -NoProfile -ExecutionPolicy Bypass -File tests/InstallerTests/Test-WindowsBootstrap.ps1` to test the actual Windows bootstrap with isolated fixture folders. The packaging pipeline tests script/file behavior; gameplay and multiplayer UI behavior still require real matching clients/server.
 
-The installer defaults to this fork. Its explicit `--source upstream` / `-Source upstream` option downloads stable public assets from `ifBars/S1DedicatedServers` and verifies GitHub's archive SHA256 digest. It never substitutes original upstream files for a fork/beta request. Source/repository are recorded in the install receipt. Upstream releases provide no exact Steam build manifest, so only runtime and detected beta-branch rejection can be checked there. Game updates remain Steam's responsibility.
+Fresh installs select this fork; automatic updates preserve the detected distribution. The explicit `--source upstream` / `-Source upstream` option downloads stable public assets from `ifBars/S1DedicatedServers` and verifies GitHub's archive SHA256 digest. It never substitutes original upstream files for a fork/beta request. Source/repository are recorded in the install receipt. Upstream releases provide no exact Steam build manifest, so only runtime and detected beta-branch rejection can be checked there. Game updates remain Steam's responsibility.
+
+Automatic update (`Update-Windows.cmd`, `Update-Linux.sh`, engine `update`) preserves the installed distribution/source, branch, runtime and side. A matching receipt is used first; manually installed or changed DLLs are detected through PE/CLI blob metadata containing MelonInfo/GameBranch/S1DSRepository, without loading code. New DLLs include the repository marker; legacy `-unn.` versions identify this fork. New installs select the fork using the game's runtime/Steam branch. Explicit options still switch distribution/channel. Unknown custom sources and duplicate active S1DS DLLs fail clearly. Unchanged files are skipped, and automatic online updates never downgrade a newer local build.
 
 To verify real upstream/fork downloads, an older fork update, public/beta/source switching and restoration against temporary game fixtures (with network access):
 
 ```bash
 python3 tests/InstallerTests/Verify-LiveReleases.py
+# Optional when this machine reached GitHub's anonymous API limit:
+python3 tests/InstallerTests/Verify-LiveReleases.py --github-cli-auth
 ```
 
 This opt-in check changes only temporary fixture game files. The native Windows CI smoke test additionally installs the latest actual upstream client before switching back to the bundled fork fixture.
