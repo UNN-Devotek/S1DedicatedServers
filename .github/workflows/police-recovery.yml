@@ -19,6 +19,14 @@ on:
       - 'Shared/Patches/SceneCallbackPatches.cs'
       - 'Utils/SceneCallbackLifetime.cs'
       - 'tests/SceneCallbackTests/**'
+      - 'Client/Patches/BetaAuthorityPatches.cs'
+      - 'Client/Patches/LoopbackVisibilityPatches.cs'
+      - 'Client/Patches/LoadingScreenPatches.cs'
+      - 'Shared/Patches/BetaQuestGuidPatches.cs'
+      - 'tests/BetaRuntimeTests/**'
+      - 'Server/Game/Patches/Visual/HeadlessGpuPatches.cs'
+      - 'Server/Game/Patches/Visual/ClientVisualPatches.cs'
+      - 'tests/HeadlessVisualTests/**'
       - '.github/workflows/police-recovery.yml'
   pull_request:
     paths:
@@ -38,6 +46,14 @@ on:
       - 'Shared/Patches/SceneCallbackPatches.cs'
       - 'Utils/SceneCallbackLifetime.cs'
       - 'tests/SceneCallbackTests/**'
+      - 'Client/Patches/BetaAuthorityPatches.cs'
+      - 'Client/Patches/LoopbackVisibilityPatches.cs'
+      - 'Client/Patches/LoadingScreenPatches.cs'
+      - 'Shared/Patches/BetaQuestGuidPatches.cs'
+      - 'tests/BetaRuntimeTests/**'
+      - 'Server/Game/Patches/Visual/HeadlessGpuPatches.cs'
+      - 'Server/Game/Patches/Visual/ClientVisualPatches.cs'
+      - 'tests/HeadlessVisualTests/**'
       - '.github/workflows/police-recovery.yml'
   workflow_dispatch:
 
@@ -97,3 +113,30 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Exercise scene cleanup and callback unsubscription
         run: dotnet run --project tests/SceneCallbackTests -p:RuntimeDefine=${{ matrix.runtime }}
+
+  beta-runtime:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runtime: [MONO, IL2CPP]
+        branch: [GAME_BETA, GAME_PUBLIC]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Exercise beta authority, quest identity, loading and loopback visibility
+        run: dotnet run --project tests/BetaRuntimeTests -p:RuntimeDefine=${{ matrix.runtime }} -p:BranchDefine=${{ matrix.branch }}
+
+  headless-visuals:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runtime: [MONO, IL2CPP]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Exercise headless GPU initialization and cleanup
+        run: dotnet run --project tests/HeadlessVisualTests -p:RuntimeDefine=${{ matrix.runtime }}

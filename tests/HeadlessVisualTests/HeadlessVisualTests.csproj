@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+ <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><DefineConstants>$(DefineConstants);SERVER;$(RuntimeDefine);GAME_BETA</DefineConstants></PropertyGroup>
+ <ItemGroup>
+  <PackageReference Include="Lib.Harmony" Version="2.4.2" />
+  <Compile Include="../../Server/Game/Patches/Visual/ClientVisualPatches.cs" Link="ClientVisualPatches.cs" />
+  <Compile Include="../../Server/Game/Patches/Visual/HeadlessGpuPatches.cs" Link="HeadlessGpuPatches.cs" Condition="Exists('../../Server/Game/Patches/Visual/HeadlessGpuPatches.cs')" />
+ </ItemGroup>
+</Project>

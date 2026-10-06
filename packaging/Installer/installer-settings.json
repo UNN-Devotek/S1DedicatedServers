@@ -15,6 +15,6 @@
   "favorite": { "Name": "Unnamed Schedule I", "Host": "67.222.144.10", "Port": 38465 },
   "games": {
     "public": { "version": "0.4.6f13", "build_id": "24705572" },
-    "beta": { "version": "0.4.7f7", "build_id": "25622691" }
+    "beta": { "version": "0.4.7f9", "build_id": "25698382" }
   }
 }

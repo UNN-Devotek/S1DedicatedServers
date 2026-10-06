@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable>
+    <DefineConstants>$(DefineConstants);CLIENT;$(RuntimeDefine);$(BranchDefine)</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Lib.Harmony" Version="2.4.2" />
+    <Compile Include="../../Utils/DedicatedRuntimeContext.cs" Link="DedicatedRuntimeContext.cs" />
+    <Compile Include="../../Client/Patches/LoadingScreenPatches.cs" Link="LoadingScreenPatches.cs" />
+    <Compile Include="../../Client/Patches/BetaAuthorityPatches.cs" Link="BetaAuthorityPatches.cs" Condition="Exists('../../Client/Patches/BetaAuthorityPatches.cs')" />
+    <Compile Include="../../Client/Patches/LoopbackVisibilityPatches.cs" Link="LoopbackVisibilityPatches.cs" Condition="Exists('../../Client/Patches/LoopbackVisibilityPatches.cs')" />
+    <Compile Include="../../Shared/Patches/BetaQuestGuidPatches.cs" Link="BetaQuestGuidPatches.cs" Condition="Exists('../../Shared/Patches/BetaQuestGuidPatches.cs')" />
+  </ItemGroup>
+</Project>

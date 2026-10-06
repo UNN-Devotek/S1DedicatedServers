@@ -33,7 +33,7 @@ namespace DedicatedServerMod.Client.Patches
 
         [HarmonyPatch(typeof(LoadingScreen), nameof(LoadingScreen.Close))]
         [HarmonyPrefix]
-        private static bool ClosePrefix()
+        private static bool ClosePrefix(LoadingScreen __instance)
         {
             bool shouldHold = ShouldHoldLoadingScreen();
             if (shouldHold)
@@ -41,7 +41,9 @@ namespace DedicatedServerMod.Client.Patches
                 DebugLog.Debug("Holding loading screen open until dedicated join verification completes");
             }
 
-            return !shouldHold;
+            // Native Close pops its UI state even when it has already closed. Both the
+            // game's load completion and our verification completion can call it.
+            return !shouldHold && (!DedicatedRuntimeContext.IsActive || __instance.IsOpen);
         }
 
         private static bool ShouldHoldLoadingScreen()
