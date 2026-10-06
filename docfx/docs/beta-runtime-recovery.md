@@ -25,6 +25,20 @@ Native beta RVA evidence: Player.OnStartClient 0x642E90, ApplyThirdPersonMeshVis
 - Create/complete a dead-drop quest and rejoin; confirm its GUID remains stable and progression persists.
 - Confirm loading completes and closes cleanly after authentication.
 
-**[Confirmed] Additional warnings remain in the original client log:** missing quest name The Deep End, missing tap input prompt bindings, seed echo warnings, loading-time NPC GUID/region mismatches and NavMesh placement failures. Their initiating game state has not been reproduced with enough evidence for a safe repair. No placeholder quests, fabricated bindings, inventory retries, or global AI disabling are included.
+## Follow-up presentation repairs (1.1.0-unn.6)
+
+**[Confirmed] Tap hint data:** beta 0.4.7f9's sharedassets0 `Descriptor_FillContainer` references `Generic/FillContainer`, whose only serialized binding is `<Gamepad>/rightStick/x`. The native tap remains usable with a mouse, but its prompt cannot find a mouse binding. Dedicated beta clients temporarily substitute the existing `Generic/PrimaryClick` reference while the native prompt resolver runs. This shows the click used to hold the handle, respects rebinding, leaves gamepad behavior and input controls intact, and releases the temporary objects even when rendering fails. Public builds and ordinary sessions retain native behavior.
+
+**[Deduced] Customer marker reconciliation:** `Customer.SetupPoI` evaluates potential-customer visibility at creation; subsequent visibility relies on connection-unlock callbacks. A relationship already unlocked before subscription produces no new unlock callback. The dedicated client's map now re-evaluates markers with `Customer.UpdatePotentialCustomerPoI` each time it opens. This repairs the stale-marker case without granting customers or regions. ProgressionPresentationTests reproduces that ordering, but the user's original missing-marker symptom still requires an actual join/sample test.
+
+**[Confirmed] Obsolete quest reference:** both beta scenes contain a SystemTrigger referring to `The Deep End`, but Main's quest definitions and the current saved quest list do not contain that quest. It is not a missing GUID for an existing quest. No replacement quest, title alias, or forced completion is introduced.
+
+**[Confirmed] Region requirements:** `MapRegionData.RankRequirement` gates regions; `Customer.SampleConsumed` awards XP for a qualifying sample. Receiving XP or unlocking one customer does not necessarily meet the next region's requirement. The local test world currently has rank 0, tier 1, total XP 100 and Northtown unlocked. A sample/region failure must be checked against the actual rank and NPC state.
+
+Use `worlddiagnostics`, `worlddiagnostics <npc name>`, and `worlddiagnostics quests` from the server console to capture rank/XP, relationships, mutual connections, conscious active agents off the NavMesh, ragdoll state and quest GUIDs. The command is read-only, uses normal console-command permissions, and refuses to inspect a loading world. Inactive template NavMesh warnings can be distinguished from a stranded active cop at runtime.
+
+ProgressionPresentationTests applies the production Harmony patches for Mono/IL2CPP and public/beta, covering late relationship replication, unlocked customers, close/ordinary/server guards, gamepad hints, rebinding, genuinely unbound controls, unrelated descriptors and exception cleanup.
+
+**[Confirmed] Additional warnings remain in the original client log:** seed echo warnings, loading-time NPC GUID/region mismatches and NavMesh placement failures. Their initiating game state has not been reproduced with enough evidence for a safe repair. No inventory retries or global AI disabling are included. Bare coroutine failures and quest audio warnings also need a gameplay reproduction with a useful native stack.
 
 The original onPlayerSpawned-cleanup hypothesis was refuted by the beta native disassembly: LoadManager.CleanUp clears onLocalPlayerSpawned, while onPlayerSpawned resides in a separate static field.

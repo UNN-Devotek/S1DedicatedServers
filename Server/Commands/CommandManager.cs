@@ -296,6 +296,7 @@ namespace DedicatedServerMod.Server.Commands
             RegisterCommand(new VanishCommand(playerManager));
             RegisterCommand(new HelpCommand(playerManager, this));
             RegisterCommand(new ServerInfoCommand(playerManager, networkManager));
+            RegisterCommand(new WorldDiagnosticsCommand(playerManager));
             RegisterCommand(new ReloadConfigCommand(playerManager));
             RegisterCommand(new SaveCommand(playerManager));
             RegisterCommand(new BroadcastCommand(playerManager));
