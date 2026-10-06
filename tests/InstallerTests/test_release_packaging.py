@@ -64,7 +64,8 @@ class ReleasePackagingTests(unittest.TestCase):
             with zipfile.ZipFile(handout) as z:
                 self.assertIsNone(z.testzip())
                 self.assertTrue({'Install-Windows.cmd', 'Install-Linux.sh', 'Uninstall-Windows.cmd',
-                                 'Uninstall-Linux.sh', 's1ds_installer.py'} <= set(z.namelist()))
+                                 'Uninstall-Linux.sh', 'Update-Windows.cmd', 'Update-Linux.sh',
+                                 's1ds_installer.py'} <= set(z.namelist()))
                 for bundled_channel in ('public', 'beta'):
                     manifest = json.loads(z.read(f'Packages/{bundled_channel}/release-manifest.json'))
                     self.assertEqual(manifest['version'], '1.2.3')

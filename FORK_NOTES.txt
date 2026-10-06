@@ -1,5 +1,14 @@
 UNN-Devotek Schedule I dedicated server fork
 
+1.1.0-unn.9 automatic updater:
+- Detect the installed source, public/beta channel, Mono/IL2CPP runtime, side and
+  actual mod version from a matching receipt or non-executing PE/CLI metadata.
+- Automatic update is the default menu action; standalone update scripts need
+  only the game folder. Keep explicit source/channel switching available.
+- Skip identical current files, preserve newer local builds during online
+  updates, repair missing recorded mods, and reject ambiguous/custom identities.
+- Embed the fork repository in new assemblies for future manual-install detection.
+
 1.1.0-unn.8 installer follow-up:
 - Add an explicit original ifBars public release source to the same Windows/Linux
   installer, including Mono/IL2CPP client/server archive SHA256 verification.

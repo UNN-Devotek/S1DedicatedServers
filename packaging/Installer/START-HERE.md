@@ -6,10 +6,18 @@ This package installs the Unnamed S1DS fork, including server announcements and 
 
 1. Close Schedule I. In Steam, select the desired **Public (Betas: None)** or **Beta** game branch and finish its download.
 2. Extract the entire ZIP. In Steam, choose **Manage → Browse local files** and copy the folder containing `Schedule I.exe`.
-3. Double-click **Install-Windows.cmd**. Choose public or beta, then paste the game folder path. The installer downloads the latest matching release and verifies its checksums.
+3. Double-click **Update-Windows.cmd**, or use **Install-Windows.cmd** and press Enter for **Detect and update automatically**. Paste the game folder path. The installer detects an existing mod's source, channel, runtime and client/server side, then downloads the latest matching release and verifies its checksums. For a first install it selects our fork and detects the game branch/runtime.
 4. Launch through Steam. Use **Servers → Favorites → Unnamed Schedule I → Join**. Ask the host for the password.
 
 For one-click channel selection, use **Install-Public.cmd** or **Install-Beta.cmd**. The same scripts also update an existing install. Steam must already have the matching game branch; these scripts change the mod files only.
+
+Automatic updates use a matching install receipt or read the actual DLL's MelonInfo and assembly metadata without loading it. Manual ifBars installs are detected as upstream; older fork public/beta installs are detected too. A changed DLL takes priority over a stale receipt. Multiple S1DS runtime/side DLLs or an unidentified custom build stop automatic selection; remove duplicates or choose source/channel explicitly. Backups and logs are not used as the active mod.
+
+Automatic updates keep the installed source/channel/runtime/side. They skip unchanged current files and do not replace a newer local build with an older online release. An explicit release tag or bundled/offline selection permits a deliberate downgrade. To switch Steam branches or distribution sources, use the explicit public/beta/upstream choices after changing Steam. Missing recorded mod files are repaired using their previous selection.
+
+```powershell
+.\Install-Windows.ps1 -Action update -GameDirectory 'C:\Games\Schedule I'
+```
 
 The full **Client ZIP** includes this release's channel and dependencies for offline installation. **Unnamed-Schedule-I-Public-and-Beta.zip** contains both channels and is the shareable handout; it is built and attached to every tagged release. The **Setup ZIP** downloads the files.
 
@@ -17,7 +25,7 @@ Every installer uses the **latest published public or beta release** when downlo
 
 ### Original ifBars releases
 
-The menu also offers **5: Install/update Original ifBars Public**. This downloads the latest stable release directly from [ifBars/S1DedicatedServers](https://github.com/ifBars/S1DedicatedServers/releases), verifies GitHub's SHA256 archive digest, and installs the selected client DLL using the same backups and receipt. Choose the source matching your server: original upstream files replace the fork mod and do not include our fork's fixes. Public/beta menu options 1 and 2 use our fork by default.
+The menu also offers **5: Switch/install Original ifBars Public**. This downloads the latest stable release directly from [ifBars/S1DedicatedServers](https://github.com/ifBars/S1DedicatedServers/releases), verifies GitHub's SHA256 archive digest, and installs the selected client DLL using the same backups and receipt. Choose the source matching your server: original upstream files replace the fork mod and do not include our fork's fixes. Explicit menu options 1 and 2 select our fork; automatic option 0 preserves the detected source.
 
 Upstream selection is online and public only. Beta and bundled/offline files use our fork. Upstream does not publish an exact Steam build ID; its installs verify the selected Mono/IL2CPP runtime, while our fork installs also check the Steam build ID. Switch Steam to the public branch before using upstream. The installer patches the mod/loader files in your installed game; Steam supplies game updates.
 
@@ -53,11 +61,19 @@ Extract the entire ZIP, open a terminal in the extracted folder, and run:
 bash Install-Linux.sh
 ```
 
-The menu installs/updates Public or Beta, uninstalls, or shows the installed version. Paste the game folder from Steam's **Manage → Browse local files**. In the full Client ZIP, choose **Use bundled files** to install the included mod files. To select a channel directly:
+Press Enter for automatic detection/update, or choose an explicit public/beta/upstream switch, uninstall, or status. Paste the game folder from Steam's **Manage → Browse local files**. To update without source/channel questions:
 
 ```bash
-bash Install-Linux.sh '/path/to/Schedule I' public
-bash Install-Linux.sh '/path/to/Schedule I' beta
+bash Update-Linux.sh '/path/to/Schedule I'
+# Equivalent:
+bash Install-Linux.sh '/path/to/Schedule I' auto
+```
+
+In the full Client ZIP, choose **Use bundled files** after an explicit public/beta choice to install its included mod files. To select a channel directly:
+
+```bash
+bash Install-Linux.sh '/path/to/Schedule I' public --source fork
+bash Install-Linux.sh '/path/to/Schedule I' beta --source fork
 # Full ZIP, bundled files:
 bash Install-Linux.sh '/path/to/Schedule I' public --offline
 ```
