@@ -3,6 +3,7 @@ param(
     [ValidateSet('menu','install','uninstall','download','status','check')][string]$Action = 'menu',
     [string]$GameDirectory,
     [ValidateSet('public','beta')][string]$Channel,
+    [ValidateSet('fork','upstream')][string]$Source = 'fork',
     [ValidateSet('Il2cpp','Mono')][string]$Runtime = 'Il2cpp',
     [ValidateSet('Client','Server')][string]$Side = 'Client',
     [string]$ReleaseTag,
@@ -44,7 +45,7 @@ try {
             Move-Item -LiteralPath $staging -Destination $runtimeFolder
         } finally { if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force } }
     }
-    $arguments = @('-I', (Join-Path $PSScriptRoot 's1ds_installer.py'), $Action, '--runtime', $Runtime, '--side', $Side)
+    $arguments = @('-I', (Join-Path $PSScriptRoot 's1ds_installer.py'), $Action, '--runtime', $Runtime, '--side', $Side, '--source', $Source.ToLowerInvariant())
     if ($GameDirectory) { $arguments += @('--game-directory', $GameDirectory) }
     if ($Channel) { $arguments += @('--channel', $Channel.ToLowerInvariant()) }
     if ($ReleaseTag) { $arguments += @('--tag', $ReleaseTag) }

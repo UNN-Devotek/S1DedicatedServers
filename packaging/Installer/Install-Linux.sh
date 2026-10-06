@@ -8,16 +8,18 @@ channel="${2:-}"
 extra=(); if [[ $# -gt 2 ]]; then extra=("${@:3}"); fi
 action=install
 interactive=false
+release_source=fork
 if [[ -z "$channel" ]]; then
     interactive=true
-    printf '1: Install/update Public\n2: Install/update Beta\n3: Uninstall\n4: Status\n'
+    printf '1: Install/update Fork Public\n2: Install/update Fork Beta\n3: Uninstall\n4: Status\n5: Install/update Original ifBars Public\n'
     read -r -p 'Choose [1]: ' choice
     case "${choice:-1}" in
         1|public) channel=public ;;
         2|beta) channel=beta ;;
         3) action=uninstall ;;
         4) action=status ;;
-        *) echo 'Choose 1, 2, 3 or 4.' >&2; exit 1 ;;
+        5) channel=public; release_source=upstream; extra+=(--source upstream) ;;
+        *) echo 'Choose 1, 2, 3, 4 or 5.' >&2; exit 1 ;;
     esac
 fi
 if [[ -z "$game_dir" ]]; then
@@ -28,7 +30,15 @@ game_dir="$(python3 -c 'from pathlib import Path; import sys; print(Path(sys.arg
 if [[ "$action" != install ]]; then
     exec python3 "$package_dir/s1ds_installer.py" "$action" --game-directory "$game_dir" "${extra[@]}"
 fi
-if [[ "$interactive" == true && -f "$package_dir/Packages/$channel/release-manifest.json" ]]; then
+# An explicit source also suppresses the fork's bundled/offline prompt.
+for ((index=0; index<${#extra[@]}; index++)); do
+    if [[ "${extra[index]}" == --source && $((index+1)) -lt ${#extra[@]} ]]; then
+        release_source="${extra[index+1]}"
+    elif [[ "${extra[index]}" == --source=* ]]; then
+        release_source="${extra[index]#--source=}"
+    fi
+done
+if [[ "$interactive" == true && "$release_source" == fork && -f "$package_dir/Packages/$channel/release-manifest.json" ]]; then
     offline=false
     for arg in "${extra[@]}"; do [[ "$arg" != --offline ]] || offline=true; done
     if [[ "$offline" == false ]]; then

@@ -1,5 +1,14 @@
 UNN-Devotek Schedule I dedicated server fork
 
+1.1.0-unn.8 installer follow-up:
+- Add an explicit original ifBars public release source to the same Windows/Linux
+  installer, including Mono/IL2CPP client/server archive SHA256 verification.
+- Keep fork public/beta as the default; upstream never falls back to beta or
+  bundled fork files. Record the installed repository/source in the receipt.
+- Preserve saves, game assets, unrelated mods and original mod backups while
+  switching sources; detect beta Steam branches before upstream public installs.
+- Add upstream migration regressions and an opt-in real-release installer check.
+
 1.1.0-unn.6 follow-up:
 - Re-evaluate potential-customer map icons with native visibility rules on map
   opening; repair stale icons without granting relationships or regions.

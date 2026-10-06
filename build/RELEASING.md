@@ -60,3 +60,13 @@ dotnet run --project tests/ServerAnnouncementTests
 ```
 
 On Windows, run `powershell -NoProfile -ExecutionPolicy Bypass -File tests/InstallerTests/Test-WindowsBootstrap.ps1` to test the actual Windows bootstrap with isolated fixture folders. The packaging pipeline tests script/file behavior; gameplay and multiplayer UI behavior still require real matching clients/server.
+
+The installer defaults to this fork. Its explicit `--source upstream` / `-Source upstream` option downloads stable public assets from `ifBars/S1DedicatedServers` and verifies GitHub's archive SHA256 digest. It never substitutes original upstream files for a fork/beta request. Source/repository are recorded in the install receipt. Upstream releases provide no exact Steam build manifest, so only runtime and detected beta-branch rejection can be checked there. Game updates remain Steam's responsibility.
+
+To verify real upstream/fork downloads, an older fork update, public/beta/source switching and restoration against temporary game fixtures (with network access):
+
+```bash
+python3 tests/InstallerTests/Verify-LiveReleases.py
+```
+
+This opt-in check changes only temporary fixture game files. The native Windows CI smoke test additionally installs the latest actual upstream client before switching back to the bundled fork fixture.

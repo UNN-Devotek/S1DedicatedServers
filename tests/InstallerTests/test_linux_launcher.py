@@ -128,4 +128,25 @@ sys.exit(7 if os.environ.get('S1DS_TEST_FAIL_PROTON') and sys.argv[1:2] != ['inf
     def test_invalid_menu_choice_has_clear_error(self):
         result = self.launch(input='9\n')
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn('Choose 1, 2, 3 or 4', result.stderr)
+        self.assertIn('Choose 1, 2, 3, 4 or 5', result.stderr)
+
+    def test_upstream_menu_forwards_source_without_fork_offline_prompt(self):
+        engine = self.setup / 's1ds_installer.py'
+        engine.write_text('''import json,os,sys
+with open(os.environ['S1DS_TEST_CALLS'],'a') as out:
+    out.write(json.dumps(['installer',*sys.argv[1:]])+'\\n')
+''')
+        self.assert_success(self.launch(input=f'5\n{self.game}\n'))
+        calls = [call for call in self.records() if call[0] == 'installer']
+        self.assertEqual([call[1] for call in calls], ['check', 'install'])
+        for call in calls:
+            self.assertEqual(call[call.index('--source')+1], 'upstream')
+            self.assertEqual(call[call.index('--channel')+1], 'public')
+            self.assertNotIn('--offline', call)
+
+    def test_upstream_offline_stops_before_proton_or_game_changes(self):
+        result = self.launch(str(self.game), 'public', '--source', 'upstream', '--offline')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Upstream installs require public', result.stderr)
+        self.assertEqual(self.records(), [])
+        self.assertFalse((self.game / 'Mods').exists())

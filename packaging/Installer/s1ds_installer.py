@@ -147,7 +147,46 @@ def release_manifest(settings: dict, channel: str, tag: str | None = None, offli
     return manifest, release
 
 
-def prepare(settings: dict, channel: str, runtime: str, side: str, staging: Path, tag: str | None, offline: bool) -> tuple[dict, Path]:
+def prepare_upstream(settings: dict, channel: str, runtime: str, side: str, staging: Path, tag: str | None, offline: bool) -> tuple[dict, Path]:
+    """Verify an original ifBars release archive before using its selected mod DLL."""
+    if channel != 'public' or offline:
+        raise ValueError('Upstream installs require public and online downloads. Use the fork for beta or bundled files.')
+    repository = settings['upstream_repository']
+    base = 'https://api.github.com/repos/' + repository + '/releases'
+    release = request_json(base + ('/tags/' + urllib.parse.quote(tag, safe='') if tag else '/latest'))
+    if release.get('draft') or release.get('prerelease') or (tag and release.get('tag_name') != tag):
+        raise ValueError('Choose a published stable upstream release.')
+    selected_tag = release['tag_name']
+    expected = f'{runtime}_{side}.zip'.lower()
+    assets = [a for a in release.get('assets', []) if a.get('name', '').replace('-', '_').lower() == expected]
+    if len(assets) != 1:
+        raise ValueError(f'Upstream release has no unique {runtime} {side} package.')
+    asset = assets[0]
+    digest = asset.get('digest') or ''
+    if not re.fullmatch(r'sha256:[0-9a-fA-F]{64}', digest):
+        raise ValueError('Upstream asset has no SHA256 digest. Select a newer release with verified downloads.')
+    cache = safe_path(ROOT, '.downloads/upstream/' + selected_tag)
+    archive = download(asset['browser_download_url'], safe_path(cache, asset['name']), digest.split(':', 1)[1])
+    payload = staging / 'mod'
+    extract(archive, payload)
+    mod = safe_path(payload, f'Mods/DedicatedServerMod_{runtime}_{side}.dll')
+    if not mod.is_file():
+        raise ValueError('Upstream package is missing the selected mod DLL.')
+    # Upstream publishes archive digests but no fork-style game build manifest.
+    # The verified archive covers this DLL; do not infer a Steam build ID.
+    manifest = {'schema': 1, 'source': 'upstream', 'repository': repository,
+                'channel': 'public', 'tag': selected_tag, 'version': selected_tag.removeprefix('v'),
+                'game': {'build_id': None}, 'loader': settings['loader'],
+                'packages': [{'file': asset['name'], 'runtime': runtime, 'side': side,
+                              'sha256': digest.split(':', 1)[1].lower(), 'dll_sha256': sha256(mod)}]}
+    return manifest, mod
+
+
+def prepare(settings: dict, channel: str, runtime: str, side: str, staging: Path, tag: str | None, offline: bool, source: str = 'fork') -> tuple[dict, Path]:
+    if source == 'upstream':
+        return prepare_upstream(settings, channel, runtime, side, staging, tag, offline)
+    if source != 'fork':
+        raise ValueError('Choose fork or upstream as the release source.')
     manifest, release = release_manifest(settings, channel, tag, offline)
     matches = [p for p in manifest['packages'] if p['runtime'] == runtime and p['side'] == side]
     if len(matches) != 1:
@@ -172,7 +211,7 @@ def prepare(settings: dict, channel: str, runtime: str, side: str, staging: Path
     return manifest, mod
 
 
-def check_game(game: Path, runtime: str | None = None, build_id: str | None = None, allow_mismatch: bool = False) -> None:
+def check_game(game: Path, runtime: str | None = None, build_id: str | None = None, allow_mismatch: bool = False, public_only: bool = False) -> None:
     if not game.is_dir() or not (game / 'Schedule I.exe').is_file():
         raise ValueError('Choose the folder containing Schedule I.exe.')
     safe_path(game, STATE_DIR + '/state.json')
@@ -188,9 +227,13 @@ def check_game(game: Path, runtime: str | None = None, build_id: str | None = No
         if subprocess.run(['pgrep', '-x', 'Schedule I.exe'], stdout=subprocess.DEVNULL).returncode == 0:
             raise ValueError('Close Schedule I before changing its mod files.')
     steam_manifest = game.parent.parent / 'appmanifest_3164500.acf'
-    if build_id and steam_manifest.is_file():
-        found = re.search(r'"buildid"\s+"(\d+)"', steam_manifest.read_text(encoding='utf-8'))
-        if found and found.group(1) != str(build_id) and not allow_mismatch:
+    if steam_manifest.is_file():
+        steam_data = steam_manifest.read_text(encoding='utf-8')
+        branches = re.findall(r'"BetaKey"\s+"([^"]*)"', steam_data, flags=re.IGNORECASE)
+        if public_only and any('beta' in branch.lower() for branch in branches) and not allow_mismatch:
+            raise ValueError('Original upstream public files cannot be installed on a detected beta game branch. Switch/update the game in Steam first.')
+        found = re.search(r'"buildid"\s+"(\d+)"', steam_data)
+        if build_id and found and found.group(1) != str(build_id) and not allow_mismatch:
             raise ValueError(f'Installed Steam build {found.group(1)} does not match required build {build_id}. Switch/update the game in Steam first. Use --allow-game-version-mismatch only for an intentional manual override.')
 
 
@@ -313,10 +356,13 @@ def install(game: Path, manifest: dict, mod: Path, settings: dict, loader: Path 
                 state['added_favorite'] = added
                 remember('UserData/DedicatedServerClientServers.json')
                 write_json(favorite_path, favorite_data)
-        state.update(uninstalled=False, channel=manifest['channel'], tag=manifest['tag'], runtime=manifest['runtime'], side=manifest['side'], version=manifest['version'])
+        state.update(uninstalled=False, source=manifest.get('source', 'fork'),
+                     repository=manifest.get('repository', settings.get('repository')),
+                     channel=manifest['channel'], tag=manifest['tag'], runtime=manifest['runtime'],
+                     side=manifest['side'], version=manifest['version'])
         remember(STATE_DIR + '/state.json')
         write_json(game / STATE_DIR / 'state.json', state)
-    print(f"Installed {state['channel']} {state['runtime']} {state['side']} {state['version']}.")
+    print(f"Installed {state['source']} {state['channel']} {state['runtime']} {state['side']} {state['version']}.")
     print('Original files and recovery copies: ' + str(game / STATE_DIR))
 
 
@@ -375,6 +421,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('action', choices=['install', 'uninstall', 'download', 'status', 'check', 'menu'])
     parser.add_argument('--game-directory')
     parser.add_argument('--channel', choices=['public', 'beta'])
+    parser.add_argument('--source', choices=['fork', 'upstream'], default='fork')
     parser.add_argument('--runtime', choices=['Il2cpp', 'Mono'], default='Il2cpp')
     parser.add_argument('--side', choices=['Client', 'Server'], default='Client')
     parser.add_argument('--tag')
@@ -385,9 +432,15 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     settings = read_json(ROOT / 'installer-settings.json')
     if args.action == 'menu':
-        choice = input('1: Install/update Public\n2: Install/update Beta\n3: Uninstall\n4: Status\nChoose [1]: ').strip() or '1'
-        args.action, args.channel = {'1': ('install', 'public'), '2': ('install', 'beta'), '3': ('uninstall', None), '4': ('status', None)}[choice]
-        if args.action == 'install' and not args.offline and (ROOT / 'Packages' / args.channel / 'release-manifest.json').is_file():
+        choice = input('1: Install/update Fork Public\n2: Install/update Fork Beta\n3: Uninstall\n4: Status\n5: Install/update Original ifBars Public\nChoose [1]: ').strip() or '1'
+        if choice not in ('1', '2', '3', '4', '5'):
+            raise ValueError('Choose 1, 2, 3, 4 or 5.')
+        args.action, args.channel = {'1': ('install', 'public'), '2': ('install', 'beta'), '3': ('uninstall', None), '4': ('status', None), '5': ('install', 'public')}[choice]
+        if choice == '5':
+            args.source = 'upstream'
+        elif choice in ('1', '2'):
+            args.source = 'fork'
+        if args.action == 'install' and args.source == 'fork' and not args.offline and (ROOT / 'Packages' / args.channel / 'release-manifest.json').is_file():
             args.offline = input('1: Download latest release\n2: Use bundled files (offline)\nChoose [1]: ').strip() == '2'
     game = None
     if args.action != 'download':
@@ -396,19 +449,22 @@ def main(argv: list[str] | None = None) -> int:
         check_game(game)
     if args.action == 'status':
         state = load_state(game)
-        print(json.dumps({k: state.get(k) for k in ['channel', 'tag', 'runtime', 'side', 'version', 'uninstalled']}, indent=2))
+        print(json.dumps({k: state.get(k) for k in ['source', 'repository', 'channel', 'tag', 'runtime', 'side', 'version', 'uninstalled']}, indent=2))
         return 0
     if args.action == 'uninstall':
         retained = uninstall(game, args.keep_loader, args.restore_previous)
         return 2 if any(MOD_PATTERN.fullmatch(p) for p in retained) else 0
     channel = args.channel or 'public'
-    print(f'Selected {channel} mod files. Switch Steam to the matching game branch first; the installer does not change Steam game files.')
+    print(f'Selected {args.source} {channel} mod files. Switch Steam to the matching game branch first; the installer does not change Steam game files.')
     with tempfile.TemporaryDirectory(prefix='s1ds-installer-') as temporary:
         staging = Path(temporary)
-        manifest, mod = prepare(settings, channel, args.runtime, args.side, staging, args.tag, args.offline)
+        manifest, mod = prepare(settings, channel, args.runtime, args.side, staging, args.tag, args.offline, args.source)
+        print(f"Release: {manifest.get('repository', settings['repository'])} / {manifest['tag']}")
+        if args.source == 'upstream':
+            print('Original upstream files replace the fork mod. Use a matching upstream server and the public game branch. Upstream does not publish a Steam build ID; only the game runtime can be checked.')
         selected = dict(manifest, runtime=args.runtime, side=args.side)
         if game:
-            check_game(game, args.runtime, manifest['game']['build_id'], args.allow_game_version_mismatch)
+            check_game(game, args.runtime, manifest['game']['build_id'], args.allow_game_version_mismatch, args.source == 'upstream')
             existing = load_state(game)
             if existing.get('side', args.side) != args.side or existing.get('runtime', args.runtime) != args.runtime:
                 raise ValueError('Uninstall the existing runtime/side before changing it. Public/beta switching uses the same runtime/side.')
