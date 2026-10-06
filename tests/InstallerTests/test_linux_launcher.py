@@ -128,7 +128,25 @@ sys.exit(7 if os.environ.get('S1DS_TEST_FAIL_PROTON') and sys.argv[1:2] != ['inf
     def test_invalid_menu_choice_has_clear_error(self):
         result = self.launch(input='9\n')
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn('Choose 1, 2, 3, 4 or 5', result.stderr)
+        self.assertIn('Choose 0, 1, 2, 3, 4 or 5', result.stderr)
+
+    def test_auto_update_preserves_the_recorded_beta_selection(self):
+        self.assert_success(self.launch(str(self.game),'beta','--offline'))
+        # Offline supplies test payloads; automatic mode still resolves beta from the receipt.
+        self.assert_success(self.launch(str(self.game),'auto','--offline'))
+        receipt=json.loads((self.game/'.s1ds-installer/state.json').read_text())
+        self.assertEqual((receipt['source'],receipt['channel']),('fork','beta'))
+
+    def test_default_menu_forwards_auto_to_check_and_update(self):
+        engine=self.setup/'s1ds_installer.py'
+        engine.write_text('''import json,os,sys
+with open(os.environ['S1DS_TEST_CALLS'],'a') as out:
+    out.write(json.dumps(['installer',*sys.argv[1:]])+'\\n')
+''')
+        self.assert_success(self.launch(input=f'\n{self.game}\n'))
+        calls=[call for call in self.records() if call[0]=='installer']
+        self.assertEqual([call[1] for call in calls],['check','update'])
+        for call in calls:self.assertEqual(call[call.index('--channel')+1],'auto')
 
     def test_upstream_menu_forwards_source_without_fork_offline_prompt(self):
         engine = self.setup / 's1ds_installer.py'

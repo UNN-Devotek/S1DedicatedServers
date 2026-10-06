@@ -26,10 +26,20 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Windows $channel install failed." }
         if ([IO.File]::ReadAllText("$game/Mods/DedicatedServerMod_Il2cpp_Client.dll") -ne $channel) { throw 'Wrong installed channel.' }
     }
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$package/Install-Windows.ps1" -Action update -GameDirectory $game -Offline
+    if ($LASTEXITCODE -ne 0) { throw 'Windows automatic beta update failed.' }
+    $receipt = Get-Content "$game/.s1ds-installer/state.json" -Raw | ConvertFrom-Json
+    if ($receipt.channel -ne 'beta' -or $receipt.source -ne 'fork') { throw 'Automatic update lost the existing beta selection.' }
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$package/Install-Windows.ps1" -Action install -GameDirectory $game -Channel public -Source upstream
     if ($LASTEXITCODE -ne 0) { throw 'Windows original upstream install failed.' }
     $receipt = Get-Content "$game/.s1ds-installer/state.json" -Raw | ConvertFrom-Json
     if ($receipt.source -ne 'upstream' -or $receipt.repository -ne 'ifBars/S1DedicatedServers') { throw 'Wrong upstream source in receipt.' }
+    # Removing the receipt exercises metadata detection of the real upstream DLL.
+    Remove-Item -LiteralPath "$game/.s1ds-installer/state.json"
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$package/Install-Windows.ps1" -Action update -GameDirectory $game
+    if ($LASTEXITCODE -ne 0) { throw 'Windows automatic detection of a manual upstream install failed.' }
+    $receipt = Get-Content "$game/.s1ds-installer/state.json" -Raw | ConvertFrom-Json
+    if ($receipt.source -ne 'upstream' -or $receipt.tag -notlike 'v*') { throw 'Automatic update replaced upstream with the fork.' }
     $upstreamHash = (Get-FileHash "$game/Mods/DedicatedServerMod_Il2cpp_Client.dll" -Algorithm SHA256).Hash
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$package/Install-Windows.ps1" -Action install -GameDirectory $game -Channel public -Source upstream -Offline
     if ($LASTEXITCODE -eq 0) { throw 'Upstream offline unexpectedly used fork files.' }
@@ -39,5 +49,5 @@ try {
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$package/Install-Windows.ps1" -Action uninstall -GameDirectory $game -Offline
     if ($LASTEXITCODE -ne 0 -or (Test-Path "$game/Mods/DedicatedServerMod_Il2cpp_Client.dll")) { throw 'Windows uninstall failed.' }
     if ([IO.File]::ReadAllText("$game/version.dll") -ne 'fixture') { throw 'Pre-existing loader was changed.' }
-    Write-Host 'PASS: native Windows bootstrap, public/beta/upstream/public switch, failed upstream offline preserves mod, and uninstall.'
+    Write-Host 'PASS: Windows automatic beta update, manual upstream metadata detection, source switching, rejection without mutation, and uninstall.'
 } finally { Remove-Item -LiteralPath $temp -Recurse -Force }

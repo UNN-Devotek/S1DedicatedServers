@@ -12,6 +12,7 @@ from pathlib import Path, PurePosixPath
 import re
 import shutil
 import stat
+import struct
 import subprocess
 import sys
 import tempfile
@@ -23,6 +24,152 @@ import zipfile
 ROOT = Path(__file__).resolve().parent
 STATE_DIR = '.s1ds-installer'
 MOD_PATTERN = re.compile(r'^Mods/DedicatedServerMod_(Mono|Il2cpp)_(Client|Server)\.dll$')
+
+
+def version_key(value: str) -> tuple:
+    """Compare semantic mod versions, including numeric fork revision suffixes."""
+    found = re.fullmatch(r'v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?', value or '')
+    if not found:
+        raise ValueError('Cannot identify the installed mod version: ' + str(value))
+    suffix = found.group(4)
+    tokens = tuple((0, int(p)) if p.isdigit() else (1, p) for p in (suffix or '').split('.'))
+    return (*map(int, found.group(1, 2, 3)), int(suffix is None), tokens)
+
+
+def assembly_identity(path: Path) -> dict:
+    """Read serialized assembly attributes from PE/CLI metadata without executing the DLL."""
+    if path.stat().st_size > 64 * 1024 * 1024:
+        raise ValueError('Cannot identify an oversized S1DS DLL.')
+    data = path.read_bytes()
+    try:
+        if data[:2] != b'MZ': raise ValueError('Not a PE file')
+        pe = struct.unpack_from('<I', data, 60)[0]
+        if data[pe:pe+4] != b'PE\0\0': raise ValueError('Not a PE file')
+        sections = struct.unpack_from('<H', data, pe+6)[0]
+        optional = pe+24
+        section_table = optional+struct.unpack_from('<H', data, pe+20)[0]
+        magic = struct.unpack_from('<H', data, optional)[0]
+        if magic not in (0x10b, 0x20b): raise ValueError('Unsupported PE header')
+
+        def offset(rva):
+            for index in range(sections):
+                size, address, raw_size, raw = struct.unpack_from('<IIII', data, section_table+index*40+8)
+                if address <= rva < address+max(size, raw_size) and rva-address < raw_size:
+                    return raw+rva-address
+            raise ValueError('Invalid CLI address')
+
+        directory = optional+(112 if magic == 0x20b else 96)
+        cli = offset(struct.unpack_from('<I', data, directory+14*8)[0])
+        metadata = offset(struct.unpack_from('<I', data, cli+8)[0])
+        if data[metadata:metadata+4] != b'BSJB': raise ValueError('Missing CLI metadata')
+        length = struct.unpack_from('<I', data, metadata+12)[0]
+        cursor = (metadata+16+length+3)&~3
+        streams = struct.unpack_from('<H', data, cursor+2)[0]; cursor += 4
+        blob = None
+        for _ in range(streams):
+            start, size = struct.unpack_from('<II', data, cursor)
+            end = data.index(0, cursor+8)
+            name = data[cursor+8:end]; cursor = (end+4)&~3
+            if name == b'#Blob':
+                if metadata+start+size > len(data): raise ValueError('Truncated blob heap')
+                blob = data[metadata+start:metadata+start+size]
+        if blob is None: raise ValueError('Missing blob heap')
+
+        def compressed(buffer, position):
+            first = buffer[position]
+            if first < 0x80: return first, position+1
+            if first < 0xc0: return ((first&0x3f)<<8)|buffer[position+1], position+2
+            if first < 0xe0:
+                return ((first&0x1f)<<24)|(buffer[position+1]<<16)|(buffer[position+2]<<8)|buffer[position+3], position+4
+            raise ValueError('Invalid compressed integer')
+
+        def string(buffer, position):
+            length, position = compressed(buffer, position)
+            if position+length > len(buffer): raise ValueError('Truncated attribute')
+            return buffer[position:position+length].decode('utf-8'), position+length
+
+        identities = set(); branches = set(); repositories = set(); cursor = 1
+        while cursor < len(blob):
+            length, cursor = compressed(blob, cursor)
+            if cursor+length > len(blob): raise ValueError('Truncated blob')
+            value = blob[cursor:cursor+length]; cursor += length
+            if not value.startswith(b'\x01\x00'): continue
+            try:
+                first, position = string(value, 2); second, position = string(value, position)
+                if first == 'GameBranch' and second in ('Public', 'Beta'):
+                    branches.add(second.lower())
+                elif first == 'S1DSRepository':
+                    repositories.add(second)
+                elif first.split(',', 1)[0] in ('DedicatedServerMod.Client.Core.ClientBootstrap', 'DedicatedServerMod.Server.Core.ServerBootstrap'):
+                    side = 'Client' if first.startswith('DedicatedServerMod.Client.') else 'Server'
+                    if second != ('DedicatedServerClient' if side == 'Client' else 'DedicatedServerHost'): continue
+                    version, position = string(value, position)
+                    version_key(version); identities.add((side, version))
+            except (ValueError, IndexError, UnicodeDecodeError):
+                continue
+        if len(identities) != 1 or len(branches) > 1 or len(repositories) > 1:
+            raise ValueError('Missing or ambiguous S1DS identity')
+        side, version = identities.pop()
+        return {'side': side, 'version': version, 'channel': next(iter(branches), None),
+                'repository': next(iter(repositories), None)}
+    except (ValueError, IndexError, struct.error) as error:
+        raise ValueError(f'Cannot identify S1DS metadata in {path.name}: {error}') from None
+
+
+def game_selection(game: Path, settings: dict, runtime: str | None = None) -> dict:
+    """Use installed game files and Steam branch metadata for a first installation."""
+    runtimes = [name for name, relative in [('Il2cpp', 'GameAssembly.dll'), ('Mono', 'Schedule I_Data/Managed/Assembly-CSharp.dll')]
+                if (game / relative).is_file()]
+    if runtime not in ('Il2cpp', 'Mono') and len(runtimes) != 1:
+        raise ValueError('Cannot detect a unique game runtime. Select --runtime Il2cpp or Mono.')
+    manifest = game.parent.parent / 'appmanifest_3164500.acf'
+    channel = 'public'
+    if manifest.is_file():
+        data = manifest.read_text(encoding='utf-8')
+        branches = re.findall(r'"BetaKey"\s+"([^"]*)"', data, flags=re.IGNORECASE)
+        build = re.search(r'"buildid"\s+"(\d+)"', data)
+        if any('beta' in branch.lower() for branch in branches) or (build and build.group(1) == settings.get('games', {}).get('beta', {}).get('build_id')):
+            channel = 'beta'
+    return {'source': 'fork', 'repository': settings['repository'], 'channel': channel,
+            'runtime': runtime if runtime in ('Il2cpp', 'Mono') else runtimes[0], 'side': 'Client', 'version': None, 'detected_by': 'game'}
+
+
+def detect_installation(game: Path, settings: dict, allow_unknown: bool = False, runtime: str | None = None) -> dict:
+    """Prefer a matching receipt; otherwise inspect the active DLL, never backups or logs."""
+    state = load_state(game)
+    paths = [p for p in (game / 'Mods').glob('DedicatedServerMod_*.dll') if MOD_PATTERN.fullmatch('Mods/'+p.name)]
+    if len(paths) > 1:
+        raise ValueError('Multiple S1DS DLLs are installed. Remove the extra runtime/side DLL before updating.')
+    if not paths:
+        if not state.get('uninstalled') and any(MOD_PATTERN.fullmatch(p) for p in state['files']):
+            if all(state.get(k) in values for k, values in [('channel', ('public', 'beta')), ('runtime', ('Il2cpp', 'Mono')), ('side', ('Client', 'Server'))]):
+                return dict(state, source=state.get('source', 'fork'), version=None, detected_by='receipt repair')
+        return game_selection(game, settings, runtime)
+    path = safe_path(game, 'Mods/'+paths[0].name)
+    runtime, side = MOD_PATTERN.fullmatch('Mods/'+path.name).groups()
+    entry = state['files'].get('Mods/'+path.name)
+    if entry and sha256(path) == entry['installed_sha256'] and state.get('runtime') == runtime and state.get('side') == side and state.get('channel') in ('public', 'beta') and state.get('version'):
+        version_key(state['version'])
+        source = state.get('source', 'fork' if '-unn.' in state['version'] else None)
+        if source in ('fork', 'upstream'):
+            return dict(state, source=source, detected_by='receipt')
+    try:
+        identity = assembly_identity(path)
+    except ValueError:
+        if not allow_unknown: raise
+        return {'runtime': runtime, 'side': side, 'version': None, 'detected_by': 'explicit repair'}
+    if identity['side'] != side:
+        raise ValueError('S1DS DLL filename and assembly side disagree.')
+    repository = identity['repository']
+    unknown_source = repository and repository not in (settings['repository'], settings['upstream_repository'])
+    unknown_source = unknown_source or (not repository and '-unn.' not in identity['version'] and not re.fullmatch(r'v?\d+\.\d+\.\d+(?:\+[0-9A-Za-z.-]+)?', identity['version']))
+    if unknown_source:
+        if allow_unknown:
+            return dict(identity, runtime=runtime, detected_by='explicit repair')
+        raise ValueError('Cannot identify this custom S1DS repository. Select the source/channel explicitly.')
+    source = ('fork' if repository == settings['repository'] else 'upstream') if repository else ('fork' if '-unn.' in identity['version'] else 'upstream')
+    return dict(identity, source=source, repository=settings['repository'] if source == 'fork' else settings['upstream_repository'],
+                channel=identity['channel'] or 'public', runtime=runtime, detected_by='assembly metadata')
 
 
 def read_json(path: Path) -> dict:
@@ -418,12 +565,12 @@ def uninstall(game: Path, keep_loader: bool = False, restore_previous: bool = Fa
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['install', 'uninstall', 'download', 'status', 'check', 'menu'])
+    parser.add_argument('action', choices=['install', 'update', 'uninstall', 'download', 'status', 'check', 'menu'])
     parser.add_argument('--game-directory')
-    parser.add_argument('--channel', choices=['public', 'beta'])
-    parser.add_argument('--source', choices=['fork', 'upstream'], default='fork')
-    parser.add_argument('--runtime', choices=['Il2cpp', 'Mono'], default='Il2cpp')
-    parser.add_argument('--side', choices=['Client', 'Server'], default='Client')
+    parser.add_argument('--channel', choices=['auto', 'public', 'beta'], default='auto')
+    parser.add_argument('--source', choices=['auto', 'fork', 'upstream'], default='auto')
+    parser.add_argument('--runtime', choices=['auto', 'Il2cpp', 'Mono'], default='auto')
+    parser.add_argument('--side', choices=['auto', 'Client', 'Server'], default='auto')
     parser.add_argument('--tag')
     parser.add_argument('--offline', action='store_true')
     parser.add_argument('--keep-loader', action='store_true')
@@ -432,10 +579,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     settings = read_json(ROOT / 'installer-settings.json')
     if args.action == 'menu':
-        choice = input('1: Install/update Fork Public\n2: Install/update Fork Beta\n3: Uninstall\n4: Status\n5: Install/update Original ifBars Public\nChoose [1]: ').strip() or '1'
-        if choice not in ('1', '2', '3', '4', '5'):
-            raise ValueError('Choose 1, 2, 3, 4 or 5.')
-        args.action, args.channel = {'1': ('install', 'public'), '2': ('install', 'beta'), '3': ('uninstall', None), '4': ('status', None), '5': ('install', 'public')}[choice]
+        choice = input('0: Detect and update automatically\n1: Switch/install Fork Public\n2: Switch/install Fork Beta\n3: Uninstall\n4: Status\n5: Switch/install Original ifBars Public\nChoose [0]: ').strip() or '0'
+        if choice not in ('0', '1', '2', '3', '4', '5'):
+            raise ValueError('Choose 0, 1, 2, 3, 4 or 5.')
+        args.action, args.channel = {'0': ('update', 'auto'), '1': ('install', 'public'), '2': ('install', 'beta'), '3': ('uninstall', 'auto'), '4': ('status', 'auto'), '5': ('install', 'public')}[choice]
         if choice == '5':
             args.source = 'upstream'
         elif choice in ('1', '2'):
@@ -446,15 +593,28 @@ def main(argv: list[str] | None = None) -> int:
     if args.action != 'download':
         raw = args.game_directory or input('Game folder containing Schedule I.exe: ')
         game = Path(raw.strip().strip('"')).expanduser().resolve(strict=True)
-        check_game(game)
+        if args.action != 'status':
+            check_game(game)
+        elif not game.is_dir() or not (game/'Schedule I.exe').is_file():
+            raise ValueError('Choose the folder containing Schedule I.exe.')
     if args.action == 'status':
-        state = load_state(game)
-        print(json.dumps({k: state.get(k) for k in ['source', 'repository', 'channel', 'tag', 'runtime', 'side', 'version', 'uninstalled']}, indent=2))
+        detected = detect_installation(game, settings, runtime=args.runtime)
+        print(json.dumps({k: detected.get(k) for k in ['source', 'repository', 'channel', 'tag', 'runtime', 'side', 'version', 'uninstalled']}, indent=2))
         return 0
     if args.action == 'uninstall':
         retained = uninstall(game, args.keep_loader, args.restore_previous)
         return 2 if any(MOD_PATTERN.fullmatch(p) for p in retained) else 0
-    channel = args.channel or 'public'
+    detected = detect_installation(game, settings, allow_unknown=args.source != 'auto' and args.channel != 'auto', runtime=args.runtime) if game else {
+        'source': 'fork', 'channel': 'public', 'runtime': 'Il2cpp', 'side': 'Client', 'version': None}
+    if detected.get('version'):
+        print(f"Detected installed mod: {detected.get('source', 'selected source')} {detected.get('channel', '')} {detected['runtime']} {detected['side']} {detected['version']}.")
+    if args.source == 'auto' and args.channel == 'beta':
+        args.source = 'fork'
+    for key in ('source', 'channel', 'runtime', 'side'):
+        if getattr(args, key) == 'auto':
+            if not detected.get(key): raise ValueError('Cannot detect the installed '+key+'. Select it explicitly.')
+            setattr(args, key, detected[key])
+    channel = args.channel
     print(f'Selected {args.source} {channel} mod files. Switch Steam to the matching game branch first; the installer does not change Steam game files.')
     with tempfile.TemporaryDirectory(prefix='s1ds-installer-') as temporary:
         staging = Path(temporary)
@@ -463,13 +623,21 @@ def main(argv: list[str] | None = None) -> int:
         if args.source == 'upstream':
             print('Original upstream files replace the fork mod. Use a matching upstream server and the public game branch. Upstream does not publish a Steam build ID; only the game runtime can be checked.')
         selected = dict(manifest, runtime=args.runtime, side=args.side)
+        same_build_family = detected.get('source') == args.source and detected.get('channel') == channel and detected.get('runtime') == args.runtime and detected.get('side') == args.side
+        if same_build_family and detected.get('version') and not args.tag and not args.offline and version_key(detected['version']) > version_key(manifest['version']):
+            print(f"Installed {detected['version']} is newer than published {manifest['version']}; no game files changed. Choose an explicit release tag to downgrade.")
+            return 0
         if game:
             check_game(game, args.runtime, manifest['game']['build_id'], args.allow_game_version_mismatch, args.source == 'upstream')
             existing = load_state(game)
-            if existing.get('side', args.side) != args.side or existing.get('runtime', args.runtime) != args.runtime:
+            if not existing.get('uninstalled') and any(MOD_PATTERN.fullmatch(p) for p in existing['files']) and (existing.get('side', args.side) != args.side or existing.get('runtime', args.runtime) != args.runtime):
                 raise ValueError('Uninstall the existing runtime/side before changing it. Public/beta switching uses the same runtime/side.')
             if args.side == 'Client':
                 favorites(game)
+            current = safe_path(game, 'Mods/'+mod.name)
+            if same_build_family and detected.get('version') == manifest['version'] and detected.get('detected_by') == 'receipt' and current.is_file() and sha256(current) == sha256(mod) and (game/'version.dll').is_file() and (game/'MelonLoader/net6/MelonLoader.dll').is_file():
+                print(f"Already up to date: {manifest['version']}. No game files changed.")
+                return 0
         loader = None
         if not game or not (game / 'version.dll').is_file() or not (game / 'MelonLoader/net6/MelonLoader.dll').is_file():
             dependency = manifest['loader']

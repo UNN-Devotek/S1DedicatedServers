@@ -1,10 +1,12 @@
 """Opt-in real GitHub download/install smoke test; uses temporary game fixtures only."""
 import importlib.util
+import argparse
 import json
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import urllib.parse
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -12,6 +14,16 @@ REPO = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('live_installer', REPO / 'packaging/Installer/s1ds_installer.py')
 i = importlib.util.module_from_spec(spec); spec.loader.exec_module(i)
 settings = i.read_json(i.ROOT / 'installer-settings.json')
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--github-cli-auth', action='store_true', help='Use an existing gh login for API metadata if this machine reached the anonymous rate limit')
+args = parser.parse_args()
+if args.github_cli_auth:
+    original_request = i.request_json
+    def request_json(url):
+        if urllib.parse.urlparse(url).hostname == 'api.github.com':
+            return json.loads(subprocess.check_output(['gh', 'api', url], text=True))
+        return original_request(url)
+    i.request_json = request_json
 results = []
 with tempfile.TemporaryDirectory(prefix='s1ds-live-installer-') as directory:
     root = Path(directory)
@@ -45,6 +57,12 @@ with tempfile.TemporaryDirectory(prefix='s1ds-live-installer-') as directory:
         if command[:2] == ['powershell.exe', '-NoProfile']: return SimpleNamespace(returncode=0)
         return real_run(command, *args, **kwargs)
     with patch.object(i.subprocess, 'run', side_effect=fixture_process_check):
+        # No receipt yet: detect the actual upstream DLL, then adopt/update it.
+        (game.parent.parent/'appmanifest_3164500.acf').write_text(f'"buildid" "{settings["games"]["public"]["build_id"]}"')
+        assert i.main(['update','--game-directory',str(game)]) == 0
+        state = i.load_state(game)
+        assert state['source'] == 'upstream' and state['channel'] == 'public'
+        results.append({'action':'automatic-manual-upstream','source':state['source'],'tag':state['tag']})
         steps = [('fork', 'public', 'public-v1.1.0-unn.6'), ('fork', 'public', None),
                  ('fork', 'beta', None), ('upstream', 'public', None), ('fork', 'public', None)]
         for source, channel, tag in steps:
@@ -59,6 +77,25 @@ with tempfile.TemporaryDirectory(prefix='s1ds-live-installer-') as directory:
             for relative, data in protected.items(): assert (game / relative).read_bytes() == data
             results.append({'action': 'install-update', 'source': source, 'channel': channel,
                             'tag': state['tag'], 'dll_sha256': i.sha256(target), 'protected_files': 'unchanged'})
+            before = target.stat().st_mtime_ns
+            assert i.main(['update','--game-directory',str(game)]) == 0
+            updated = i.load_state(game)
+            assert updated['source'] == source and updated['channel'] == channel
+            if tag is None: assert target.stat().st_mtime_ns == before, 'Current files should not be rewritten'
+            results.append({'action':'automatic-update','source':source,'channel':channel,'tag':updated['tag']})
+        # A separate manual beta install, without a receipt, must stay beta.
+        beta_game = root/'Manual Beta/steamapps/common/Schedule I'; beta_game.mkdir(parents=True)
+        for relative,data in protected.items():
+            f=beta_game/relative;f.parent.mkdir(parents=True,exist_ok=True);f.write_bytes(data)
+        beta_stage=root/'old-manual-beta';beta_stage.mkdir()
+        _,beta_dll=i.prepare(settings,'beta','Il2cpp','Client',beta_stage,'beta-v1.1.0-unn.7',False)
+        shutil.copy2(beta_dll,beta_game/'Mods'/beta_dll.name)
+        (beta_game.parent.parent/'appmanifest_3164500.acf').write_text(f'"BetaKey" "beta" "buildid" "{settings["games"]["beta"]["build_id"]}"')
+        assert i.main(['update','--game-directory',str(beta_game)]) == 0
+        beta_state=i.load_state(beta_game)
+        assert beta_state['source']=='fork' and beta_state['channel']=='beta'
+        for relative,data in protected.items():assert (beta_game/relative).read_bytes()==data
+        results.append({'action':'automatic-manual-beta','source':'fork','channel':'beta','tag':beta_state['tag'],'protected_files':'unchanged'})
         assert i.main(['uninstall', '--game-directory', str(game), '--restore-previous']) == 0
         assert i.sha256(target) == original_hash
         for relative, data in protected.items(): assert (game / relative).read_bytes() == data

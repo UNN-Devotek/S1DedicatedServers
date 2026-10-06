@@ -35,6 +35,7 @@
   </PropertyGroup>
   <ItemGroup>
     <AssemblyMetadata Include="GameBranch" Value="$(ResolvedGameBranch)" />
+    <AssemblyMetadata Include="S1DSRepository" Value="UNN-Devotek/S1DedicatedServers" />
   </ItemGroup>
   <Target Name="ValidateGameBranchInputs" BeforeTargets="ResolveAssemblyReferences">
     <Error Condition="'$(GameBranch)' != 'Public' And '$(GameBranch)' != 'Beta'" Text="GameBranch must be Public or Beta." />

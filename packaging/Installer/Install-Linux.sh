@@ -11,23 +11,25 @@ interactive=false
 release_source=fork
 if [[ -z "$channel" ]]; then
     interactive=true
-    printf '1: Install/update Fork Public\n2: Install/update Fork Beta\n3: Uninstall\n4: Status\n5: Install/update Original ifBars Public\n'
-    read -r -p 'Choose [1]: ' choice
-    case "${choice:-1}" in
-        1|public) channel=public ;;
-        2|beta) channel=beta ;;
+    printf '0: Detect and update automatically\n1: Switch/install Fork Public\n2: Switch/install Fork Beta\n3: Uninstall\n4: Status\n5: Switch/install Original ifBars Public\n'
+    read -r -p 'Choose [0]: ' choice
+    case "${choice:-0}" in
+        0|auto) channel=auto ;;
+        1|public) channel=public; extra+=(--source fork) ;;
+        2|beta) channel=beta; extra+=(--source fork) ;;
         3) action=uninstall ;;
         4) action=status ;;
         5) channel=public; release_source=upstream; extra+=(--source upstream) ;;
-        *) echo 'Choose 1, 2, 3, 4 or 5.' >&2; exit 1 ;;
+        *) echo 'Choose 0, 1, 2, 3, 4 or 5.' >&2; exit 1 ;;
     esac
 fi
+if [[ "$channel" == auto ]]; then action=update; fi
 if [[ -z "$game_dir" ]]; then
     read -r -p 'Game folder containing Schedule I.exe: ' game_dir
 fi
 game_dir="${game_dir#\"}"; game_dir="${game_dir%\"}"
 game_dir="$(python3 -c 'from pathlib import Path; import sys; print(Path(sys.argv[1]).expanduser().resolve())' "$game_dir")"
-if [[ "$action" != install ]]; then
+if [[ "$action" != install && "$action" != update ]]; then
     exec python3 "$package_dir/s1ds_installer.py" "$action" --game-directory "$game_dir" "${extra[@]}"
 fi
 # An explicit source also suppresses the fork's bundled/offline prompt.
@@ -76,4 +78,4 @@ if ! "${proton[@]}" -c 'wine reg add "HKCU\Software\Wine\DllOverrides" /v versio
     echo 'Proton DLL override setup failed. No mod files were installed.' >&2
     exit 1
 fi
-python3 "$package_dir/s1ds_installer.py" install --game-directory "$game_dir" --channel "$channel" "${extra[@]}"
+python3 "$package_dir/s1ds_installer.py" "$action" --game-directory "$game_dir" --channel "$channel" "${extra[@]}"
