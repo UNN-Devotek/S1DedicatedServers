@@ -182,3 +182,12 @@ Installer/release integration:
 - Original files, modified-file recovery copies, favorites/history, other mods and saves are preserved.
 - public-vVERSION and beta-vVERSION publish separate GitHub releases from protected main; dev has automatic public/beta client/server builds.
 - See packaging/Installer/START-HERE.md and build/RELEASING.md.
+
+Beta 0.4.7f9 recovery (1.1.0-unn.5):
+- Preserve ghost visibility after native spawn/appearance updates.
+- Keep beta pickup destruction and flee destinations server-authoritative.
+- Preserve assigned runtime quest GUIDs through native Start.
+- Make dedicated-client loading-screen closure idempotent.
+- Skip headless GPU instancing and fog render work while preserving cleanup.
+- Refresh private beta compilation references and installer metadata to Steam build 25698382.
+- See docfx/docs/beta-runtime-recovery.md for evidence, regression coverage and remaining gameplay checks.
