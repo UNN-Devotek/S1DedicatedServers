@@ -1,5 +1,17 @@
 UNN-Devotek Schedule I dedicated server fork
 
+1.1.0-unn.6 follow-up:
+- Re-evaluate potential-customer map icons with native visibility rules on map
+  opening; repair stale icons without granting relationships or regions.
+- Fix the beta's gamepad-only tap descriptor for dedicated mouse clients by
+  rendering the existing click binding; preserve rebinding and source assets.
+- Add read-only worlddiagnostics console snapshots for rank/XP, NPC relationship,
+  active NavMesh/ragdoll state and quest IDs; useful for the next multiplayer test.
+- Trace The Deep End warning to an obsolete beta scene trigger whose named quest
+  is absent from Main and the save. Do not fabricate a replacement quest.
+- Regression checks cover both runtime names and both channels; see
+  docfx/docs/beta-runtime-recovery.md for evidence and remaining gameplay checks.
+
 Upstream: https://github.com/ifBars/S1DedicatedServers
 Base: master 488b25b (gameplay patches match v1.1.0)
 Police recovery branch: fix/police-recovery
