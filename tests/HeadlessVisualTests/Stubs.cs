@@ -67,3 +67,14 @@ namespace CorgiGodRays {
   public void Dispose(bool disposing)=>Releases++;
  }
 }
+
+#if IL2CPP
+namespace Il2CppScheduleOne.DevUtilities {
+#else
+namespace ScheduleOne.DevUtilities {
+#endif
+ public sealed class OptimizedLight {
+  public int Culls;
+  [MethodImpl(MethodImplOptions.NoInlining)] public void UpdateCull()=>Culls++;
+ }
+}

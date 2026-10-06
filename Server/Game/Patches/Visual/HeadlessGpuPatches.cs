@@ -84,7 +84,7 @@ namespace DedicatedServerMod.Server.Game.Patches.Visual
 
     /// <summary>
     /// Skips reflection compute kernels, weather-mask textures and god-ray render
-    /// buffers on the server. Native weather initialization callbacks and disposal
+    /// buffers and camera-driven light culling on the server. Native weather initialization callbacks and disposal
     /// are preserved; only the GPU work is intercepted.
     /// </summary>
     [HarmonyPatch]
@@ -99,6 +99,13 @@ namespace DedicatedServerMod.Server.Game.Patches.Visual
         [HarmonyTargetMethods]
         private static IEnumerable<MethodBase> TargetMethods()
         {
+            foreach (MethodBase method in OptionalClientVisualPatchTargets.Resolve("UpdateCull",
+                "Il2CppScheduleOne.DevUtilities.OptimizedLight",
+                "ScheduleOne.DevUtilities.OptimizedLight"))
+            {
+                yield return method;
+            }
+
             foreach (string methodName in new[] { "Start", "UpdateProbes", "SetCubemaps" })
             {
                 foreach (MethodBase method in OptionalClientVisualPatchTargets.Resolve(methodName,

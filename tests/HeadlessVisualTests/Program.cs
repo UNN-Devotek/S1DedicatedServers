@@ -7,12 +7,14 @@ using Fog = Il2CppVolumetricFogAndMist2.VolumetricFog;
 using Reflection = Il2CppScheduleOne.Reflections.ReflectionProbeManager;
 using Mask = Il2CppScheduleOne.Weather.MaskController;
 using Rays = Il2CppCorgiGodRays.GodRaysRenderFeature;
+using Light = Il2CppScheduleOne.DevUtilities.OptimizedLight;
 #else
 using Instancing = ScheduleOne.Instancing.InstancingManager;
 using Fog = VolumetricFogAndMist2.VolumetricFog;
 using Reflection = ScheduleOne.Reflections.ReflectionProbeManager;
 using Mask = ScheduleOne.Weather.MaskController;
 using Rays = CorgiGodRays.GodRaysRenderFeature;
+using Light = ScheduleOne.DevUtilities.OptimizedLight;
 #endif
 var harmony=new Harmony("s1ds.tests.headless-gpu");
 foreach(var type in Assembly.GetExecutingAssembly().GetTypes().Where(t=>t.Name.StartsWith("Headless") && t.GetCustomAttributes(typeof(HarmonyPatch),false).Length>0))
@@ -31,7 +33,10 @@ if(reflection.Kernels+reflection.Updates+reflection.Assignments+mask.Masks+mask.
 int completions=0;mask.BuildTextureArrayAsync(()=>completions++);reflection.OnDestroy();mask.OnDestroy();rays.Dispose(true);
 if(completions!=1 || mask.Completions!=1 || reflection.Releases!=1 || mask.Releases!=1 || rays.Releases!=1)
  throw new Exception("Native completion and resource disposal must be preserved.");
+var light=new Light();light.UpdateCull();
+if(light.Culls!=0)throw new Exception("Headless light culling must not dereference camera/light transforms.");
 DedicatedServerPatchCommon.Visuals=true;
+light.UpdateCull();if(light.Culls!=1)throw new Exception("Visual-capable light culling must remain native.");
 reflection.Start();reflection.SetCubemaps("sun","rain");reflection.UpdateProbes();
 mask.UpdateMaskMap();mask.RunWetMaskShader();rays.Create();rays.AddRenderPasses();
 if(reflection.Kernels!=1 || reflection.Updates!=1 || reflection.Assignments!=1 || mask.Masks!=1 || mask.WetMaps!=1 || rays.Buffers!=1 || rays.Passes!=1)
@@ -39,4 +44,4 @@ if(reflection.Kernels!=1 || reflection.Updates!=1 || reflection.Assignments!=1 |
 grass.Start();grass.UpdateAndDrawInstances();fog.UpdateMaterialPropertiesNow(false,false);fog.LateUpdate();
 if(grass.Initializations!=1 || grass.Draws!=1 || fog.Captures!=1 || fog.Updates!=1)
  throw new Exception("Visual-capable sessions must retain native rendering.");
-harmony.UnpatchAll(harmony.Id);Console.WriteLine("PASS|HeadlessVisualTests|checks=29");
+harmony.UnpatchAll(harmony.Id);Console.WriteLine("PASS|HeadlessVisualTests|checks=31");
