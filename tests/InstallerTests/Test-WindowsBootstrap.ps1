@@ -21,13 +21,23 @@ try {
         $manifest = @{schema=1;channel=$channel;tag="$channel-v1.1.0-unn.1";version='1.1.0-unn.1';game=@{build_id='fixture'};loader=$settings.loader;packages=@(@{runtime='Il2cpp';side='Client';file='fixture.zip';sha256=(Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant();dll_sha256=(Get-FileHash $dll -Algorithm SHA256).Hash.ToLowerInvariant()})}
         $manifest | ConvertTo-Json -Depth 10 | Set-Content "$folder/release-manifest.json"
     }
-    foreach ($channel in @('public','beta','public')) {
+    foreach ($channel in @('public','beta')) {
         & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$package/Install-Windows.ps1" -Action install -GameDirectory $game -Channel $channel -Offline
         if ($LASTEXITCODE -ne 0) { throw "Windows $channel install failed." }
         if ([IO.File]::ReadAllText("$game/Mods/DedicatedServerMod_Il2cpp_Client.dll") -ne $channel) { throw 'Wrong installed channel.' }
     }
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$package/Install-Windows.ps1" -Action install -GameDirectory $game -Channel public -Source upstream
+    if ($LASTEXITCODE -ne 0) { throw 'Windows original upstream install failed.' }
+    $receipt = Get-Content "$game/.s1ds-installer/state.json" -Raw | ConvertFrom-Json
+    if ($receipt.source -ne 'upstream' -or $receipt.repository -ne 'ifBars/S1DedicatedServers') { throw 'Wrong upstream source in receipt.' }
+    $upstreamHash = (Get-FileHash "$game/Mods/DedicatedServerMod_Il2cpp_Client.dll" -Algorithm SHA256).Hash
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$package/Install-Windows.ps1" -Action install -GameDirectory $game -Channel public -Source upstream -Offline
+    if ($LASTEXITCODE -eq 0) { throw 'Upstream offline unexpectedly used fork files.' }
+    if ((Get-FileHash "$game/Mods/DedicatedServerMod_Il2cpp_Client.dll" -Algorithm SHA256).Hash -ne $upstreamHash) { throw 'Failed upstream request changed the mod.' }
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$package/Install-Windows.ps1" -Action install -GameDirectory $game -Channel public -Source fork -Offline
+    if ($LASTEXITCODE -ne 0 -or [IO.File]::ReadAllText("$game/Mods/DedicatedServerMod_Il2cpp_Client.dll") -ne 'public') { throw 'Windows switch back to fork failed.' }
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$package/Install-Windows.ps1" -Action uninstall -GameDirectory $game -Offline
     if ($LASTEXITCODE -ne 0 -or (Test-Path "$game/Mods/DedicatedServerMod_Il2cpp_Client.dll")) { throw 'Windows uninstall failed.' }
     if ([IO.File]::ReadAllText("$game/version.dll") -ne 'fixture') { throw 'Pre-existing loader was changed.' }
-    Write-Host 'PASS: native Windows bootstrap, public/beta/public switch, and uninstall.'
+    Write-Host 'PASS: native Windows bootstrap, public/beta/upstream/public switch, failed upstream offline preserves mod, and uninstall.'
 } finally { Remove-Item -LiteralPath $temp -Recurse -Force }

@@ -1,5 +1,6 @@
 {
   "repository": "UNN-Devotek/S1DedicatedServers",
+  "upstream_repository": "ifBars/S1DedicatedServers",
   "loader": {
     "file": "MelonLoader.x64.zip",
     "version": "0.7.2",
