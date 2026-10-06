@@ -27,6 +27,9 @@ on:
       - 'Server/Game/Patches/Visual/HeadlessGpuPatches.cs'
       - 'Server/Game/Patches/Visual/ClientVisualPatches.cs'
       - 'tests/HeadlessVisualTests/**'
+      - 'Client/Patches/CustomerMapPatches.cs'
+      - 'Client/Patches/BetaTapPromptPatches.cs'
+      - 'tests/ProgressionPresentationTests/**'
       - '.github/workflows/police-recovery.yml'
   pull_request:
     paths:
@@ -54,6 +57,9 @@ on:
       - 'Server/Game/Patches/Visual/HeadlessGpuPatches.cs'
       - 'Server/Game/Patches/Visual/ClientVisualPatches.cs'
       - 'tests/HeadlessVisualTests/**'
+      - 'Client/Patches/CustomerMapPatches.cs'
+      - 'Client/Patches/BetaTapPromptPatches.cs'
+      - 'tests/ProgressionPresentationTests/**'
       - '.github/workflows/police-recovery.yml'
   workflow_dispatch:
 
@@ -140,3 +146,17 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Exercise headless GPU initialization and cleanup
         run: dotnet run --project tests/HeadlessVisualTests -p:RuntimeDefine=${{ matrix.runtime }}
+
+  progression-presentation:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runtime: [MONO, IL2CPP]
+        branch: [GAME_BETA, GAME_PUBLIC]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Exercise map reconciliation and beta tap prompt bindings
+        run: dotnet run --project tests/ProgressionPresentationTests -p:RuntimeDefine=${{ matrix.runtime }} -p:BranchDefine=${{ matrix.branch }}
