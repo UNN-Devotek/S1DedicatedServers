@@ -87,38 +87,6 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
         }
     }
 
-    /*
-    [HarmonyPatch(typeof(TimeManagerType), "TimeLoop")]
-    [HarmonyPatch(typeof(TimeManagerType), "TickLoop")]
-    internal static class TimeManagerLoopPatches
-    {
-        private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
-        {
-            var codes = instructions.ToList();
-            var waitForEndOfFrameCtor = typeof(WaitForEndOfFrame).GetConstructor(Type.EmptyTypes);
-            var waitForFixedUpdateCtor = typeof(WaitForFixedUpdate).GetConstructor(Type.EmptyTypes);
-            bool patched = false;
-
-            for (int i = 0; i < codes.Count; i++)
-            {
-                if (codes[i].opcode == OpCodes.Newobj &&
-                    codes[i].operand is System.Reflection.ConstructorInfo ctor &&
-                    ctor == waitForEndOfFrameCtor)
-                {
-                    codes[i].operand = waitForFixedUpdateCtor;
-                    patched = true;
-                }
-            }
-
-            if (patched)
-            {
-                DebugLog.Info("Patched TimeManager coroutines to use WaitForFixedUpdate for batchmode compatibility");
-            }
-
-            return codes;
-        }
-    }
-    */
 
     [HarmonyPatch(typeof(SleepOwnerType), "StartSleep")]
     internal static class TimeManagerStartSleepPatches

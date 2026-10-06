@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 using DedicatedServerMod.Server.Commands.Contracts;
 using DedicatedServerMod.Server.Commands.Execution;
 using DedicatedServerMod.Server.Player;
@@ -9,12 +10,16 @@ using Il2CppScheduleOne.Levelling;
 using Il2CppScheduleOne.NPCs;
 using Il2CppScheduleOne.Persistence;
 using Il2CppScheduleOne.Quests;
+using Il2CppScheduleOne.GameTime;
+using Il2CppScheduleOne.ObjectScripts;
 #else
 using ScheduleOne.DevUtilities;
 using ScheduleOne.Levelling;
 using ScheduleOne.NPCs;
 using ScheduleOne.Persistence;
 using ScheduleOne.Quests;
+using ScheduleOne.GameTime;
+using ScheduleOne.ObjectScripts;
 #endif
 
 namespace DedicatedServerMod.Server.Commands.BuiltIn.System
@@ -29,7 +34,7 @@ namespace DedicatedServerMod.Server.Commands.BuiltIn.System
         /// <inheritdoc />
         public override string Description => "Inspects rank, customer relationships, NPC pathing and quest IDs";
         /// <inheritdoc />
-        public override string Usage => "worlddiagnostics [npc name | quests]";
+        public override string Usage => "worlddiagnostics [npc name | quests | clock]";
         /// <inheritdoc />
         public override string RequiredPermissionNode => PermissionNode.CreateConsoleCommandNode(CommandWord);
 
@@ -50,6 +55,11 @@ namespace DedicatedServerMod.Server.Commands.BuiltIn.System
             }
 
             string filter = context.Arguments == null ? string.Empty : string.Join(" ", context.Arguments);
+            if (string.Equals(filter, "clock", StringComparison.OrdinalIgnoreCase))
+            {
+                WriteClock(context);
+                return;
+            }
             if (string.Equals(filter, "quests", StringComparison.OrdinalIgnoreCase))
             {
                 WriteQuests(context);
@@ -113,6 +123,38 @@ namespace DedicatedServerMod.Server.Commands.BuiltIn.System
             context.Reply($"WORLD inspectedNpcs={inspected}, unlockedNpcs={unlocked}, activeConsciousOffMesh={stranded}");
             context.Reply("Region progression uses the game's rank requirements; samples can award XP without immediately unlocking a region.");
         }
+
+        private static void WriteClock(CommandContext context)
+        {
+            var clock = NetworkSingleton<TimeManager>.Instance;
+            if (clock != null)
+                context.Reply($"CLOCK time={clock.CurrentTime:D4}, day={clock.ElapsedDays}, speed={clock.TimeSpeedMultiplier}, unityScale={Time.timeScale}, endOfDay={clock.IsEndOfDay}, sleeping={DedicatedServerMod.Utils.SleepRuntime.IsSleepInProgress}");
+#if GAME_BETA
+            var sleep = NetworkSingleton<SleepController>.Instance;
+            if (sleep != null)
+                context.Reply($"SLEEP phase={sleep.CurrentPhase}, hostReady={sleep.IsHostReadyToProceed}, summaryInProgress={DailySummaryProgress()}, rankInProgress={RankProgress()}");
+#endif
+            foreach (var pot in UnityEngine.Object.FindObjectsOfType<Pot>())
+            {
+                if (pot != null && pot.Plant != null)
+                    context.Reply($"PLANT pot='{pot.name}', progress={pot.Plant.NormalizedGrowthProgress:0.000000}, fullyGrown={pot.Plant.IsFullyGrown}");
+            }
+        }
+
+#if GAME_BETA
+        private static bool? DailySummaryProgress() =>
+#if IL2CPP
+            Il2CppScheduleOne.UI.DailySummary.Instance?.IsInProgress;
+#else
+            ScheduleOne.UI.DailySummary.Instance?.IsInProgress;
+#endif
+        private static bool? RankProgress() =>
+#if IL2CPP
+            UnityEngine.Object.FindObjectOfType<Il2CppScheduleOne.UI.RankUpCanvas>()?.IsInProgress;
+#else
+            UnityEngine.Object.FindObjectOfType<ScheduleOne.UI.RankUpCanvas>()?.IsInProgress;
+#endif
+#endif
 
         private static void WriteQuests(CommandContext context)
         {

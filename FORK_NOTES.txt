@@ -203,3 +203,8 @@ Beta 0.4.7f9 recovery (1.1.0-unn.5):
 - Skip headless GPU instancing and fog render work while preserving cleanup.
 - Refresh private beta compilation references and installer metadata to Steam build 25698382.
 - See docfx/docs/beta-runtime-recovery.md for evidence, regression coverage and remaining gameplay checks.
+
+1.1.0-unn.7
+- Complete beta host-only DailySummary and RankUp presentation events without waiting for headless UI input; native sleep sequencing, client panels and statistics clearing remain intact.
+- Replace render-end yields only in the native TimeManager minute/tick iterator states on batch servers. Native timing, pause policy, progression callbacks and network synchronization remain intact.
+- Add worlddiagnostics clock to inspect authoritative day/time, sleep phase, UI event flags and planted-pot growth.
