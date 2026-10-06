@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using DedicatedServerMod.Server.Game.Patches.Common;
 using HarmonyLib;
@@ -69,6 +70,60 @@ namespace DedicatedServerMod.Server.Game.Patches.Visual
             foreach (string name in new[] { "UpdateMaterialPropertiesNow", "LateUpdate" })
             {
                 foreach (MethodBase method in OptionalClientVisualPatchTargets.Resolve(name, TypeNames))
+                {
+                    yield return method;
+                }
+            }
+        }
+
+        private static bool Prefix()
+        {
+            return DedicatedServerPatchCommon.ShouldRunClientVisuals();
+        }
+    }
+
+    /// <summary>
+    /// Skips reflection compute kernels, weather-mask textures and god-ray render
+    /// buffers on the server. Native weather initialization callbacks and disposal
+    /// are preserved; only the GPU work is intercepted.
+    /// </summary>
+    [HarmonyPatch]
+    internal static class HeadlessAdditionalGpuPatches
+    {
+        [HarmonyPrepare]
+        private static bool Prepare()
+        {
+            return TargetMethods().Any();
+        }
+
+        [HarmonyTargetMethods]
+        private static IEnumerable<MethodBase> TargetMethods()
+        {
+            foreach (string methodName in new[] { "Start", "UpdateProbes", "SetCubemaps" })
+            {
+                foreach (MethodBase method in OptionalClientVisualPatchTargets.Resolve(methodName,
+                    "Il2CppScheduleOne.Reflections.ReflectionProbeManager",
+                    "ScheduleOne.Reflections.ReflectionProbeManager"))
+                {
+                    yield return method;
+                }
+            }
+
+            foreach (string methodName in new[] { "UpdateMaskMap", "RunWetMaskShader" })
+            {
+                foreach (MethodBase method in OptionalClientVisualPatchTargets.Resolve(methodName,
+                    "Il2CppScheduleOne.Weather.MaskController",
+                    "ScheduleOne.Weather.MaskController"))
+                {
+                    yield return method;
+                }
+            }
+
+            foreach (string methodName in new[] { "Create", "AddRenderPasses" })
+            {
+                foreach (MethodBase method in OptionalClientVisualPatchTargets.Resolve(methodName,
+                    "Il2CppCorgiGodRays.GodRaysRenderFeature",
+                    "CorgiGodRays.GodRaysRenderFeature"))
                 {
                     yield return method;
                 }
