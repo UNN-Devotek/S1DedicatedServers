@@ -21,15 +21,15 @@ try {
         $manifest = @{schema=1;channel=$channel;tag="$channel-v1.1.0-unn.1";version='1.1.0-unn.1';game=@{build_id='fixture'};loader=$settings.loader;packages=@(@{runtime='Il2cpp';side='Client';file='fixture.zip';sha256=(Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant();dll_sha256=(Get-FileHash $dll -Algorithm SHA256).Hash.ToLowerInvariant()})}
         $manifest | ConvertTo-Json -Depth 10 | Set-Content "$folder/release-manifest.json"
     }
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$package/Install-Windows.ps1" -Action update -GameDirectory $game -Offline
-    if ($LASTEXITCODE -ne 0) { throw 'Windows automatic beta update failed.' }
-    $receipt = Get-Content "$game/.s1ds-installer/state.json" -Raw | ConvertFrom-Json
-    if ($receipt.channel -ne 'beta' -or $receipt.source -ne 'fork') { throw 'Automatic update lost the existing beta selection.' }
     foreach ($channel in @('public','beta')) {
         & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$package/Install-Windows.ps1" -Action install -GameDirectory $game -Channel $channel -Offline
         if ($LASTEXITCODE -ne 0) { throw "Windows $channel install failed." }
         if ([IO.File]::ReadAllText("$game/Mods/DedicatedServerMod_Il2cpp_Client.dll") -ne $channel) { throw 'Wrong installed channel.' }
     }
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$package/Install-Windows.ps1" -Action update -GameDirectory $game -Offline
+    if ($LASTEXITCODE -ne 0) { throw 'Windows automatic beta update failed.' }
+    $receipt = Get-Content "$game/.s1ds-installer/state.json" -Raw | ConvertFrom-Json
+    if ($receipt.channel -ne 'beta' -or $receipt.source -ne 'fork') { throw 'Automatic update lost the existing beta selection.' }
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$package/Install-Windows.ps1" -Action install -GameDirectory $game -Channel public -Source upstream
     if ($LASTEXITCODE -ne 0) { throw 'Windows original upstream install failed.' }
     $receipt = Get-Content "$game/.s1ds-installer/state.json" -Raw | ConvertFrom-Json
