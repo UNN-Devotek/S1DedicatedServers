@@ -30,6 +30,10 @@ on:
       - 'Client/Patches/CustomerMapPatches.cs'
       - 'Client/Patches/BetaTapPromptPatches.cs'
       - 'tests/ProgressionPresentationTests/**'
+      - 'Server/Game/Patches/Gameplay/HeadlessTimeLoopPatches.cs'
+      - 'Server/Game/Patches/Gameplay/TimeManagerPatches.cs'
+      - 'Server/Game/Patches/UI/HeadlessSleepEventPatches.cs'
+      - 'tests/HeadlessClockSleepTests/**'
       - '.github/workflows/police-recovery.yml'
   pull_request:
     paths:
@@ -60,6 +64,10 @@ on:
       - 'Client/Patches/CustomerMapPatches.cs'
       - 'Client/Patches/BetaTapPromptPatches.cs'
       - 'tests/ProgressionPresentationTests/**'
+      - 'Server/Game/Patches/Gameplay/HeadlessTimeLoopPatches.cs'
+      - 'Server/Game/Patches/Gameplay/TimeManagerPatches.cs'
+      - 'Server/Game/Patches/UI/HeadlessSleepEventPatches.cs'
+      - 'tests/HeadlessClockSleepTests/**'
       - '.github/workflows/police-recovery.yml'
   workflow_dispatch:
 
@@ -160,3 +168,17 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Exercise map reconciliation and beta tap prompt bindings
         run: dotnet run --project tests/ProgressionPresentationTests -p:RuntimeDefine=${{ matrix.runtime }} -p:BranchDefine=${{ matrix.branch }}
+
+  headless-clock-sleep:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runtime: [MONO, IL2CPP]
+        branch: [GAME_BETA, GAME_PUBLIC]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Exercise clock yields, native growth callbacks and sleep presentation completion
+        run: dotnet run --project tests/HeadlessClockSleepTests -p:RuntimeDefine=${{ matrix.runtime }} -p:BranchDefine=${{ matrix.branch }}

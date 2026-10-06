@@ -42,3 +42,11 @@ ProgressionPresentationTests applies the production Harmony patches for Mono/IL2
 **[Confirmed] Additional warnings remain in the original client log:** seed echo warnings, loading-time NPC GUID/region mismatches and NavMesh placement failures. Their initiating game state has not been reproduced with enough evidence for a safe repair. No inventory retries or global AI disabling are included. Bare coroutine failures and quest audio warnings also need a gameplay reproduction with a useful native stack.
 
 The original onPlayerSpawned-cleanup hypothesis was refuted by the beta native disassembly: LoadManager.CleanUp clears onLocalPlayerSpawned, while onPlayerSpawned resides in a separate static field.
+
+## Headless sleep and clock follow-up (NN7)
+
+The beta's native `DailySummary.StartEvent` sets `IsInProgress` before calling `Open`. Suppressing only `Open` leaves `SleepController.RunSleepEvents` waiting for a panel that cannot be closed on a headless server. Complete the server-local daily-summary and rank-panel presentation events at `StartEvent`; preserve native sleep sequencing, client panels and `ClearStats`.
+
+The clock's native minute/tick iterator states are patched separately: when they yield `WaitForEndOfFrame` on a batch server, clear that one yielded instruction so the native coroutine resumes on the next frame. Do not add a second clock or modify plant rates. Unity documents render-end waits as unsupported in standalone batch mode: https://docs.unity3d.com/2022.3/Documentation/Manual/CLIBatchmodeCoroutines.html.
+
+`worlddiagnostics clock` reports authoritative time/day, multiplier, Unity scale, end-of-day state, beta sleep phase and presentation flags, plus planted-pot growth progress. This is read-only. A saved 04:00 clock can also be the native end-of-day limit: verify sleep advances to a new day and then observe minute progression and plant growth before claiming recovery.
