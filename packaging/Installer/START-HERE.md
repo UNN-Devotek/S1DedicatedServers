@@ -15,6 +15,25 @@ The full **Client ZIP** includes this release's channel and dependencies for off
 
 Every installer uses the **latest published public or beta release** when downloading online, even if its ZIP originally contained an older version. Drafts and the other channel are ignored. It uses the ZIP's bundled version only when you choose bundled/offline files or pass `-Offline` / `--offline`. To get fresh installer scripts, download the Setup ZIP from the newest release.
 
+### Original ifBars releases
+
+The menu also offers **5: Install/update Original ifBars Public**. This downloads the latest stable release directly from [ifBars/S1DedicatedServers](https://github.com/ifBars/S1DedicatedServers/releases), verifies GitHub's SHA256 archive digest, and installs the selected client DLL using the same backups and receipt. Choose the source matching your server: original upstream files replace the fork mod and do not include our fork's fixes. Public/beta menu options 1 and 2 use our fork by default.
+
+Upstream selection is online and public only. Beta and bundled/offline files use our fork. Upstream does not publish an exact Steam build ID; its installs verify the selected Mono/IL2CPP runtime, while our fork installs also check the Steam build ID. Switch Steam to the public branch before using upstream. The installer patches the mod/loader files in your installed game; Steam supplies game updates.
+
+```powershell
+.\Install-Windows.ps1 -Action install -Source upstream -Channel public -GameDirectory 'C:\Games\Schedule I'
+# Download a Mono client instead:
+.\Download-Client-Files.ps1 -Source upstream -Runtime Mono
+```
+
+```bash
+bash Install-Linux.sh '/path/to/Schedule I' public --source upstream
+python3 s1ds_installer.py download --source upstream --channel public --runtime Mono
+```
+
+Run the normal public/beta installer again to switch back to our fork. `-ReleaseTag v1.1.0` / `--tag v1.1.0` pins an upstream release when the source is upstream. Older upstream releases without a GitHub SHA256 digest are rejected. Status records which repository, source, tag, runtime and side are installed. Verified downloads are cached in `.downloads` alongside the installer; upstream archives are under `.downloads/upstream/TAG`.
+
 In a full ZIP's menu, choose bundled/offline files when prompted, or run:
 
 ```powershell
