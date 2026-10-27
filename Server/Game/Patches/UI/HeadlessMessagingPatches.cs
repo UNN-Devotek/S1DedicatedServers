@@ -153,7 +153,7 @@ namespace DedicatedServerMod.Server.Game.Patches.UI
             if (network)
             {
                 #if GAME_BETA
-                NetworkSingleton<MessagingManagerType>.Instance.ClearResponses_Client(conversation.ConversationId);
+                NetworkSingleton<MessagingManagerType>.Instance.ClearResponses_Server(conversation.ConversationId);
 #else
                 NetworkSingleton<MessagingManagerType>.Instance.ClearResponses(conversation.sender.ID);
 #endif

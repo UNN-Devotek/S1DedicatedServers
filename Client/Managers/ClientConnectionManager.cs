@@ -600,7 +600,11 @@ namespace DedicatedServerMod.Client.Managers
             }
 
             var localPlayer = Player.Local;
-            if (localPlayer == null || ClientPlayerCompatibility.HasReceivedData(localPlayer))
+            if (localPlayer == null
+#if !GAME_BETA
+                || ClientPlayerCompatibility.HasReceivedData(localPlayer)
+#endif
+            )
             {
                 yield break;
             }
@@ -613,6 +617,13 @@ namespace DedicatedServerMod.Client.Managers
 
             string playerName = ResolveSteamPersonaName(localPlayer);
             string steamIdText = steamId.ToString(CultureInfo.InvariantCulture);
+
+#if GAME_BETA
+            if (ClientPlayerCompatibility.HasReceivedData(localPlayer) && localPlayer.PlayerCode == steamIdText)
+            {
+                yield break;
+            }
+#endif
 
             try
             {
