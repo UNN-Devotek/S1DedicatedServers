@@ -1,4 +1,8 @@
 <Project>
+  <PropertyGroup>
+    <!-- Public and beta currently share the Schedule I 0.4.7 native API. -->
+    <GameApiGeneration Condition="'$(GameApiGeneration)' == ''">047</GameApiGeneration>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(MSBuildProjectName)' == 'DedicatedServerMod'">
     <GameBranch Condition="'$(GameBranch)' == '' And $(Configuration.EndsWith('_Beta'))">Beta</GameBranch>
     <GameBranch Condition="'$(GameBranch)' == ''">Public</GameBranch>

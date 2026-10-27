@@ -24,7 +24,7 @@ namespace DedicatedServerMod.Server.Game.Patches.Player
     {
         private static readonly MethodInfo ReceivePlayerNameDataMethod = AccessTools.Method(
             typeof(PlayerType),
-#if GAME_BETA
+#if GAME_047
             "SetPlayerNameAndId_Client",
 #else
             "ReceivePlayerNameData",
@@ -115,7 +115,7 @@ namespace DedicatedServerMod.Server.Game.Patches.Player
             }
         }
 
-#if GAME_BETA
+#if GAME_047
         [HarmonyPatch(typeof(PlayerType), "SetPlayerLoaded_Server")]
 #else
         [HarmonyPatch(typeof(PlayerType), "PlayerLoaded")]

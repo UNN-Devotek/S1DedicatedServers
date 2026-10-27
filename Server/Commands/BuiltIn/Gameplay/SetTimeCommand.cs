@@ -53,7 +53,7 @@ namespace DedicatedServerMod.Server.Commands.BuiltIn.Gameplay
             }
 
             int targetTime = int.Parse(context.Arguments[0]);
-            #if GAME_BETA
+            #if GAME_047
             timeManager.SetTime_Server(targetTime);
 #else
             timeManager.SetTimeAndSync(targetTime);

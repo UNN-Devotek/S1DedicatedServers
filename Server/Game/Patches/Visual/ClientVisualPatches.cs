@@ -3,9 +3,9 @@ using DedicatedServerMod.Server.Game.Patches.Common;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-#if GAME_BETA && IL2CPP
+#if GAME_047 && IL2CPP
 using AvatarImpostorType = Il2CppScheduleOne.Avatar.Impostors.AvatarImpostor;
-#elif GAME_BETA
+#elif GAME_047
 using AvatarImpostorType = ScheduleOne.Avatar.Impostors.AvatarImpostor;
 #elif IL2CPP
 using AvatarImpostorType = Il2CppScheduleOne.AvatarFramework.Impostors.AvatarImpostor;

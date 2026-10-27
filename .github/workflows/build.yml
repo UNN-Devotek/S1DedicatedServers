@@ -58,6 +58,9 @@ jobs:
           ref: ${{ matrix.branch == 'Beta' && 'beta' || 'public' }}
           path: game-assemblies
           persist-credentials: false
+      - name: Verify IL2CPP game reference provenance
+        if: matrix.runtime == 'Il2cpp'
+        run: python build/Verify-GameReferences.py --branch ${{ matrix.branch }} --references game-assemblies
       - name: Configure matching references
         shell: pwsh
         env:

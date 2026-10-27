@@ -18,7 +18,7 @@ Check(clock.Notifications==3&&clock.PlantGrowth>.029f,"Native minute notificatio
 var tick=new Game.GameTime.TimeManager._TickLoop_d__2(clock);tick.MoveNext();Check(tick.__2__current==null,"Tick loop must avoid a render-only yield.");
 clock.Paused=true;loop.MoveNext();Check(clock.Minutes==3,"Native pause must remain effective.");
 var summary=new Game.UI.DailySummary();var rank=new Game.UI.RankUpCanvas();summary.StartEvent();rank.StartEvent();
-#if GAME_BETA
+#if GAME_047
 Check(!summary.IsInProgress&&!rank.IsInProgress,"Headless beta summary events must complete without UI input.");
 Check(summary.UiOpens==0&&rank.UiOpens==0,"Headless sleep must not open server-local panels.");
 #else

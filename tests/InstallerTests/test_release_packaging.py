@@ -90,3 +90,26 @@ class ReleasePackagingTests(unittest.TestCase):
         manifest = json.loads((self.output / 'public/release-manifest.json').read_text())
         self.assertEqual(manifest['version'], '1.2.3')
         self.assertEqual(manifest['tag'], 'public-v1.2.3')
+
+
+class GameReferenceProvenanceTests(unittest.TestCase):
+    def test_current_public_references_and_installer_agree_and_stale_inputs_fail(self):
+        spec = importlib.util.spec_from_file_location('reference_check', ROOT / 'build/Verify-GameReferences.py')
+        checker = importlib.util.module_from_spec(spec); spec.loader.exec_module(checker)
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            assembly = root / 'MelonLoader/Il2CppAssemblies/Assembly-CSharp.dll'
+            assembly.parent.mkdir(parents=True)
+            assembly.write_bytes(b'current game wrappers')
+            current = {'version': '0.4.7f12', 'build_id': '25796331'}
+            settings = {'games': {'public': current}}
+            metadata = {'game': current.copy(), 'wrapper_sha256': hashlib.sha256(assembly.read_bytes()).hexdigest()}
+            checker.verify(settings, metadata, 'Public', root)
+            with self.subTest('stale reference build'):
+                stale = dict(metadata, game={'version': '0.4.6f13', 'build_id': '24705572'})
+                with self.assertRaisesRegex(ValueError, 'does not match installer'):
+                    checker.verify(settings, stale, 'Public', root)
+            with self.subTest('mixed generated wrappers'):
+                assembly.write_bytes(b'previous game wrappers')
+                with self.assertRaisesRegex(ValueError, 'SHA256'):
+                    checker.verify(settings, metadata, 'Public', root)

@@ -165,11 +165,11 @@ Run("healthy ragdoll waits eight seconds before fallback", () =>
     Tick(movement, 0); Tick(movement, 7.9f); Equal(0, movement.DeactivateCalls);
     Tick(movement, 8); Equal(1, movement.DeactivateCalls);
 });
-Run("paused ragdoll resets continuous eligibility", () =>
+Run("ineligible ragdoll resets continuous eligibility", () =>
 {
     NPCMovement movement = new();
-    Tick(movement, 0); movement.IsPaused = true; Tick(movement, 8);
-    movement.IsPaused = false; Tick(movement, 9); Tick(movement, 16);
+    Tick(movement, 0); movement.CanRecover = false; Tick(movement, 8);
+    movement.CanRecover = true; Tick(movement, 9); Tick(movement, 16);
     Equal(0, movement.DeactivateCalls); Tick(movement, 17); Equal(1, movement.DeactivateCalls);
 });
 Run("dead, knocked-out, and unconscious NPCs are excluded", () =>

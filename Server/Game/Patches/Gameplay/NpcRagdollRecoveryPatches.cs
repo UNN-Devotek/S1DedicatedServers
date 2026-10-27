@@ -88,7 +88,7 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
         {
             npc = null;
             if (movement == null || !movement.IsServerInitialized
-#if !GAME_BETA
+#if !GAME_047
                 || movement.IsPaused
 #endif
             )
@@ -96,7 +96,7 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
                 return false;
             }
 
-#if GAME_BETA
+#if GAME_047
             npc = movement._npc;
 #else
             npc = movement.npc;
@@ -147,7 +147,7 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
             }
 
             var animation = npc.Avatar.Animation;
-#if GAME_BETA
+#if GAME_047
             var bones = animation != null ? animation._bones : null;
 #else
             var bones = animation != null ? animation.Bones : null;

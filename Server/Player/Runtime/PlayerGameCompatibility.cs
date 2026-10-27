@@ -86,7 +86,7 @@ namespace DedicatedServerMod.Server.Player.Runtime
 
         internal static bool HasReceivedData(PlayerType player)
         {
-#if GAME_BETA
+#if GAME_047
             return player != null && player.PlayerLoaded;
 #else
             return player != null && player.playerDataRetrieveReturned;

@@ -11,7 +11,7 @@ namespace DedicatedServerMod.Client.Managers
     {
         internal static bool HasReceivedData(PlayerType player)
         {
-#if GAME_BETA
+#if GAME_047
             return player != null && player.PlayerLoaded;
 #else
             return player != null && player.playerDataRetrieveReturned;
@@ -20,7 +20,7 @@ namespace DedicatedServerMod.Client.Managers
 
         internal static void RequestData(PlayerType player, string steamId)
         {
-#if GAME_BETA
+#if GAME_047
             player.RequestPlayerData_Server(steamId, isHost: false);
 #else
             player.RequestPlayerData(steamId);
@@ -29,7 +29,7 @@ namespace DedicatedServerMod.Client.Managers
 
         internal static void SetLocalVisibility(PlayerType player, bool visible)
         {
-#if GAME_BETA
+#if GAME_047
             player.SetVisible(visible, network: false);
 #else
             player.SetVisibleToLocalPlayer(visible);

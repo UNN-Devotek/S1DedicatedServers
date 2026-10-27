@@ -91,7 +91,7 @@ namespace DedicatedServerMod.Server.Commands.BuiltIn.System
                         inspected++;
                         var relation = npc.RelationData;
                         if (relation?.Unlocked == true) unlocked++;
-#if GAME_BETA
+#if GAME_047
                         var agent = npc.Movement?._agent;
                         bool active = npc.IsActive;
 #else
@@ -129,7 +129,7 @@ namespace DedicatedServerMod.Server.Commands.BuiltIn.System
             var clock = NetworkSingleton<TimeManager>.Instance;
             if (clock != null)
                 context.Reply($"CLOCK time={clock.CurrentTime:D4}, day={clock.ElapsedDays}, speed={clock.TimeSpeedMultiplier}, unityScale={Time.timeScale}, endOfDay={clock.IsEndOfDay}, sleeping={DedicatedServerMod.Utils.SleepRuntime.IsSleepInProgress}");
-#if GAME_BETA
+#if GAME_047
             var sleep = NetworkSingleton<SleepController>.Instance;
             if (sleep != null)
                 context.Reply($"SLEEP phase={sleep.CurrentPhase}, hostReady={sleep.IsHostReadyToProceed}, summaryInProgress={DailySummaryProgress()}, rankInProgress={RankProgress()}");
@@ -141,7 +141,7 @@ namespace DedicatedServerMod.Server.Commands.BuiltIn.System
             }
         }
 
-#if GAME_BETA
+#if GAME_047
         private static bool? DailySummaryProgress() =>
 #if IL2CPP
             Il2CppScheduleOne.UI.DailySummary.Instance?.IsInProgress;

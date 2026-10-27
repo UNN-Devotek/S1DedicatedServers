@@ -1,4 +1,4 @@
-#if GAME_BETA
+#if GAME_047
 using DedicatedServerMod.Server.Game.Patches.Common;
 using HarmonyLib;
 using System.Collections.Generic;

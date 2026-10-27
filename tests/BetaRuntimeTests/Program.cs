@@ -13,7 +13,7 @@ var harmony=new Harmony("s1ds.tests.beta-runtime");
 foreach(var type in Assembly.GetExecutingAssembly().GetTypes().Where(t=>t.GetCustomAttributes(typeof(HarmonyPatch),false).Length>0))
  harmony.CreateClassProcessor(type).Patch();
 bool beta=
-#if GAME_BETA
+#if GAME_047
 true;
 #else
 false;
