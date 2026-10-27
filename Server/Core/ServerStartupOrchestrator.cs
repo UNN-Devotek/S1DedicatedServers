@@ -467,7 +467,21 @@ namespace DedicatedServerMod.Server.Core
             DebugLog.StartupDebug("Creating load requests for save data");
             int queuedLoadRequests = 0;
             int skippedLoadRequests = 0;
-            foreach (BaseSaveableContractType baseSaveable in Singleton<SaveManager>.Instance.BaseSaveables)
+#if GAME_BETA
+            // Match native dependency ordering before queuing beta load requests.
+            var saveables = new List<BaseSaveableContractType>();
+            foreach (BaseSaveableContractType saveable in Singleton<SaveManager>.Instance.BaseSaveables)
+            {
+                if (saveable != null)
+                {
+                    saveables.Add(saveable);
+                }
+            }
+            var orderedSaveables = saveables.OrderBy(saveable => saveable.LoadOrder);
+#else
+            var orderedSaveables = Singleton<SaveManager>.Instance.BaseSaveables;
+#endif
+            foreach (BaseSaveableContractType baseSaveable in orderedSaveables)
             {
                 SaveableContractType saveable = null;
 #if IL2CPP

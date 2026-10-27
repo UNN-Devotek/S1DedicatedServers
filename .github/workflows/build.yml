@@ -35,6 +35,12 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+      - name: Run persistence regression checks
+        run: dotnet run --project tests/PersistenceManagerTests/PersistenceManagerTests.csproj
+      - name: Run player join bootstrap regression checks
+        run: dotnet run --project tests/PlayerJoinBootstrapTests/PlayerJoinBootstrapTests.csproj
+      - name: Test sleep patch registration and readiness
+        run: dotnet run --project tests/SleepControllerPatchTests/SleepControllerPatchTests.csproj
       - name: Check private reference configuration
         shell: pwsh
         env:

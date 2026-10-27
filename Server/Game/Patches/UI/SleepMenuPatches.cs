@@ -31,7 +31,7 @@ namespace DedicatedServerMod.Server.Game.Patches.UI
                 "SleepStart"
 #endif
 )]
-    internal static class SleepCanvasPatches
+    internal static class SleepMenuPatches
     {
         private static bool Prefix()
         {
