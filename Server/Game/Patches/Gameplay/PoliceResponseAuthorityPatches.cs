@@ -300,7 +300,7 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
         }
     }
 
-#if GAME_BETA
+#if GAME_047
     // Beta inherits this callback from NPCResponses instead of declaring a police override.
     [HarmonyPatch(typeof(NpcResponsesType), "HitByCar")]
 #else

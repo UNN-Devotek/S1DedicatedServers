@@ -211,12 +211,13 @@ namespace ScheduleOne.NPCs
         public UnityEngine.Transform transform = new(), HipBone = new();
         public AvatarAnimation Animation = new();
     }
-    public class AvatarAnimation { public UnityEngine.Transform[] Bones = { new() }; }
+    public class AvatarAnimation { public UnityEngine.Transform[] _bones = { new() }; public UnityEngine.Transform[] Bones { get => _bones; set => _bones = value; } }
     public class Health { public bool IsDead, IsKnockedOut; }
     public class NPCMovement
     {
         public bool IsPaused, IsServerInitialized = true, CanRecover = true;
-        public NPC npc = new();
+        public NPC _npc = new();
+        public NPC npc => _npc;
         public int DeactivateCalls;
         public Action OnDeactivate;
         public bool CanRecoverFromRagdoll() => CanRecover;

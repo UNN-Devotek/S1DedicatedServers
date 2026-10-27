@@ -1,4 +1,4 @@
-#if GAME_BETA
+#if GAME_047
 #if IL2CPP
 using SleepMenuType = Il2CppScheduleOne.UI.SleepMenu;
 #else
@@ -25,13 +25,13 @@ using UnityEngine;
 namespace DedicatedServerMod.Server.Game.Patches.UI
 {
     [HarmonyPatch(typeof(SleepMenuType),
-#if GAME_BETA
+#if GAME_047
                 "OnSleepStart"
 #else
                 "SleepStart"
 #endif
 )]
-    internal static class SleepCanvasPatches
+    internal static class SleepMenuPatches
     {
         private static bool Prefix()
         {

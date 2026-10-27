@@ -1,4 +1,4 @@
-#if GAME_BETA
+#if GAME_047
 #if IL2CPP
 using SleepMenuType = Il2CppScheduleOne.UI.SleepMenu;
 #else

@@ -10,7 +10,7 @@ using Finder=FishNet.InstanceFinder;
 #endif
 var harmony=new Harmony("tests.progression-presentation");harmony.PatchAll(typeof(Program).Assembly);
 var failures=new List<string>();int checks=0;
-#if GAME_BETA
+#if GAME_047
 const bool beta=true;
 #else
 const bool beta=false;

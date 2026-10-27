@@ -467,7 +467,21 @@ namespace DedicatedServerMod.Server.Core
             DebugLog.StartupDebug("Creating load requests for save data");
             int queuedLoadRequests = 0;
             int skippedLoadRequests = 0;
-            foreach (BaseSaveableContractType baseSaveable in Singleton<SaveManager>.Instance.BaseSaveables)
+#if GAME_047
+            // Match native dependency ordering before queuing beta load requests.
+            var saveables = new List<BaseSaveableContractType>();
+            foreach (BaseSaveableContractType saveable in Singleton<SaveManager>.Instance.BaseSaveables)
+            {
+                if (saveable != null)
+                {
+                    saveables.Add(saveable);
+                }
+            }
+            var orderedSaveables = saveables.OrderBy(saveable => saveable.LoadOrder);
+#else
+            var orderedSaveables = Singleton<SaveManager>.Instance.BaseSaveables;
+#endif
+            foreach (BaseSaveableContractType baseSaveable in orderedSaveables)
             {
                 SaveableContractType saveable = null;
 #if IL2CPP
@@ -666,7 +680,7 @@ namespace DedicatedServerMod.Server.Core
                     p.gameObject.name = Constants.GhostHostObjectName;
                     PlayerGameCompatibility.SetHasCompletedIntro(p, true);
                     p.SetVisible(false, network: true);
-#if GAME_BETA
+#if GAME_047
                     p.SetVisible(false, network: false);
 #else
                     p.SetVisibleToLocalPlayer(false);
@@ -781,14 +795,14 @@ namespace DedicatedServerMod.Server.Core
                 }
 
                 playerData.IntroCompleted = true;
-#if GAME_BETA
+#if GAME_047
                 // Beta's native data request constructs FullPlayerData (inventory, appearance, clothing and variables).
                 ScheduleOne.PlayerScripts.Player.Local.RequestPlayerData_Server(playerData.PlayerCode, isHost: true);
 #else
                 ScheduleOne.PlayerScripts.Player.Local.Load(playerData, player0Dir);
 #endif
                 PlayerGameCompatibility.SetHasCompletedIntro(ScheduleOne.PlayerScripts.Player.Local, true);
-#if GAME_BETA
+#if GAME_047
                 DebugLog.StartupDebug("Requested native loopback FullPlayerData from Player_0 before onLoadComplete.");
 #else
                 DebugLog.StartupDebug("Loopback host data loaded directly from Player_0 before onLoadComplete.");

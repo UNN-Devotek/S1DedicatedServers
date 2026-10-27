@@ -1,6 +1,6 @@
-#if GAME_BETA && IL2CPP
+#if GAME_047 && IL2CPP
 using SleepOwnerType = Il2CppScheduleOne.GameTime.SleepController;
-#elif GAME_BETA
+#elif GAME_047
 using SleepOwnerType = ScheduleOne.GameTime.SleepController;
 #elif IL2CPP
 using SleepOwnerType = Il2CppScheduleOne.GameTime.TimeManager;

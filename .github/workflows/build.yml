@@ -35,6 +35,12 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+      - name: Run persistence regression checks
+        run: dotnet run --project tests/PersistenceManagerTests/PersistenceManagerTests.csproj
+      - name: Run player join bootstrap regression checks
+        run: dotnet run --project tests/PlayerJoinBootstrapTests/PlayerJoinBootstrapTests.csproj
+      - name: Test sleep patch registration and readiness
+        run: dotnet run --project tests/SleepControllerPatchTests/SleepControllerPatchTests.csproj
       - name: Check private reference configuration
         shell: pwsh
         env:
@@ -52,6 +58,9 @@ jobs:
           ref: ${{ matrix.branch == 'Beta' && 'beta' || 'public' }}
           path: game-assemblies
           persist-credentials: false
+      - name: Verify IL2CPP game reference provenance
+        if: matrix.runtime == 'Il2cpp'
+        run: python build/Verify-GameReferences.py --branch ${{ matrix.branch }} --references game-assemblies
       - name: Configure matching references
         shell: pwsh
         env:

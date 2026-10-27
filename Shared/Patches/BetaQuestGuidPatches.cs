@@ -1,4 +1,4 @@
-#if GAME_BETA
+#if GAME_047
 using System;
 using DedicatedServerMod.Utils;
 using HarmonyLib;

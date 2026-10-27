@@ -142,8 +142,12 @@ namespace DedicatedServerMod.Server.Player.Runtime
                 PlayerMovementType movement = player.GetComponent<PlayerMovementType>();
                 if (movement != null)
                 {
+#if GAME_047
+                    movement.Teleport(destinationPosition, destinationRotation, alignFeetToPosition);
+#else
                     movement.Teleport(destinationPosition, alignFeetToPosition);
                     movement.SetPlayerRotation(destinationRotation);
+#endif
                 }
                 else
                 {

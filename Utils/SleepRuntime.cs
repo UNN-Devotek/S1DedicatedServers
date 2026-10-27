@@ -1,4 +1,4 @@
-#if GAME_BETA
+#if GAME_047
 #if IL2CPP
 using SleepOwner = Il2CppScheduleOne.GameTime.SleepController;
 #else
@@ -14,7 +14,7 @@ using SleepOwner = ScheduleOne.GameTime.TimeManager;
 
 namespace DedicatedServerMod.Utils
 {
-    /// <summary>Reads sleep state from the owning system for the selected game branch.</summary>
+    /// <summary>Reads sleep state from the owning system for the selected native game API.</summary>
     internal static class SleepRuntime
     {
         internal static bool IsSleepInProgress => SleepOwner.Instance != null && SleepOwner.Instance.IsSleepInProgress;
