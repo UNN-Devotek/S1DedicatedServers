@@ -487,7 +487,7 @@ namespace DedicatedServerMod.Client.Managers
             TryClearLoadState("Property.OwnedProperties.Clear", () => Property.OwnedProperties.Clear());
             TryClearLoadState("Property.UnownedProperties.Clear", () => Property.UnownedProperties.Clear());
             TryClearLoadState("PlayerMovement.StaticMoveSpeedMultiplier", () => PlayerMovement.StaticMoveSpeedMultiplier = 1f);
-#if !GAME_BETA
+#if !GAME_047
             TryClearLoadState("AvatarLookController.TempContainer", () => AvatarLookController.TempContainer = null);
 #endif
             TryClearLoadState("Customer.onCustomerUnlocked", () => Customer.onCustomerUnlocked = null);
@@ -601,7 +601,7 @@ namespace DedicatedServerMod.Client.Managers
 
             var localPlayer = Player.Local;
             if (localPlayer == null
-#if !GAME_BETA
+#if !GAME_047
                 || ClientPlayerCompatibility.HasReceivedData(localPlayer)
 #endif
             )
@@ -618,7 +618,7 @@ namespace DedicatedServerMod.Client.Managers
             string playerName = ResolveSteamPersonaName(localPlayer);
             string steamIdText = steamId.ToString(CultureInfo.InvariantCulture);
 
-#if GAME_BETA
+#if GAME_047
             if (ClientPlayerCompatibility.HasReceivedData(localPlayer) && localPlayer.PlayerCode == steamIdText)
             {
                 yield break;
@@ -651,7 +651,7 @@ namespace DedicatedServerMod.Client.Managers
 
         private static void SendPlayerNameData(Player localPlayer, string playerName, ulong steamId, string steamIdText)
         {
-#if GAME_BETA
+#if GAME_047
             localPlayer.SetPlayerNameAndId_Server(playerName, steamIdText);
             return;
 #else

@@ -1,6 +1,6 @@
-#if GAME_BETA && IL2CPP
+#if GAME_047 && IL2CPP
 using SleepOwnerType = Il2CppScheduleOne.GameTime.SleepController;
-#elif GAME_BETA
+#elif GAME_047
 using SleepOwnerType = ScheduleOne.GameTime.SleepController;
 #elif IL2CPP
 using SleepOwnerType = Il2CppScheduleOne.GameTime.TimeManager;
@@ -121,7 +121,7 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
             {
                 return;
             }
-#if GAME_BETA
+#if GAME_047
             if (__instance.IsHostReadyToProceed)
 #else
             if (__instance.HostSleepDone)
@@ -130,7 +130,7 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
                 return;
             }
 
-#if GAME_BETA
+#if GAME_047
             __instance.IsHostReadyToProceed = true;
 #else
             __instance.SetHostSleepDone(done: true);

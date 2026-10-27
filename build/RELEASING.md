@@ -74,3 +74,18 @@ python3 tests/InstallerTests/Verify-LiveReleases.py --github-cli-auth
 ```
 
 This opt-in check changes only temporary fixture game files. The native Windows CI smoke test additionally installs the latest actual upstream client before switching back to the bundled fork fixture.
+
+
+Current public and beta both target **Schedule I 0.4.7f12, Steam build 25796331**.
+`GAME_047` selects the native game API independently of distribution channel;
+`GAME_PUBLIC`/`GAME_BETA` retain their channel identity in build metadata.
+Private references must include `reference-info.json` with matching game version,
+Steam build ID, and SHA256 of the generated Assembly-CSharp.dll. CI checks this
+before compiling. Update both reference branches when Steam public and beta share
+a build. Never publish game assemblies with the mod.
+
+Before deployment, query Steam's current public branch build ID rather than infer
+it from a previous release manifest. Build 24705572 is now `default-previous`.
+Updating the DLL alone does not update an uploaded game installation. Stage the
+matching game files separately, save and cold-back up UserData, then replace game
+assets and verify the migrated world before allowing users to join.

@@ -419,7 +419,7 @@ namespace DedicatedServerMod.Server.Game.Patches.Gameplay
                 callback != null ||
                 interruptExistingCallback ||
                 !usesBroadCacheTolerance ||
-                #if GAME_BETA
+                #if GAME_047
                 !movement._hasDestination ||
                 movement._agent == null ||
                 (!movement._agent.pathPending && !movement.IsMoving)

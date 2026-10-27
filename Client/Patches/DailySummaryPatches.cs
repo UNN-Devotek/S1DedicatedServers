@@ -1,4 +1,4 @@
-#if GAME_BETA
+#if GAME_047
 #if IL2CPP
 using SleepMenuType = Il2CppScheduleOne.UI.SleepMenu;
 #else
@@ -56,7 +56,7 @@ namespace DedicatedServerMod.Client.Patches
             }
 
             MethodInfo sleepStartMethod = AccessTools.Method(typeof(SleepMenuType),
-#if GAME_BETA
+#if GAME_047
                 "OnSleepStart"
 #else
                 "SleepStart"

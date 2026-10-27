@@ -1,0 +1,7 @@
+<Project>
+  <!-- Select native API compatibility independently of the public/beta distribution channel.
+       Appending after project properties also covers the runtime regression fixtures. -->
+  <PropertyGroup Condition="'$(GameApiGeneration)' == '047'">
+    <DefineConstants>$(DefineConstants);GAME_047</DefineConstants>
+  </PropertyGroup>
+</Project>

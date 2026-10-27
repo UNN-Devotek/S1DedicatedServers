@@ -51,7 +51,7 @@ namespace DedicatedServerMod.Server.Game.Patches.UI
                 message.messageId = UnityEngine.Random.Range(int.MinValue, int.MaxValue);
             }
 
-            #if GAME_BETA
+            #if GAME_047
             MessageListType history = conversation._messageHistory;
 #else
             MessageListType history = conversation.messageHistory;
@@ -78,7 +78,7 @@ namespace DedicatedServerMod.Server.Game.Patches.UI
                 chain.id = UnityEngine.Random.Range(int.MinValue, int.MaxValue);
             }
 
-            #if GAME_BETA
+            #if GAME_047
             MessageChainListType chainHistory = conversation._messageChainHistory;
 #else
             MessageChainListType chainHistory = conversation.messageChainHistory;
@@ -89,7 +89,7 @@ namespace DedicatedServerMod.Server.Game.Patches.UI
             }
 
             chainHistory.Add(chain);
-            #if GAME_BETA
+            #if GAME_047
             MessageListType messageHistory = conversation._messageHistory;
 #else
             MessageListType messageHistory = conversation.messageHistory;
@@ -126,7 +126,7 @@ namespace DedicatedServerMod.Server.Game.Patches.UI
                 return;
             }
 
-            #if GAME_BETA
+            #if GAME_047
             bool conversationCanBeHidden = conversation._sender.CanConversationBeHidden;
 #else
             bool conversationCanBeHidden = conversation.sender?.NPCData?.Messaging?.ConversationCanBeHidden == true;
@@ -152,7 +152,7 @@ namespace DedicatedServerMod.Server.Game.Patches.UI
 
             if (network)
             {
-                #if GAME_BETA
+                #if GAME_047
                 NetworkSingleton<MessagingManagerType>.Instance.ClearResponses_Server(conversation.ConversationId);
 #else
                 NetworkSingleton<MessagingManagerType>.Instance.ClearResponses(conversation.sender.ID);

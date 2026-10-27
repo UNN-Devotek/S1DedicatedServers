@@ -18,7 +18,7 @@ using UnityEngine;
 
 namespace DedicatedServerMod.Server.Game.Patches.Weather
 {
-#if GAME_BETA
+#if GAME_047
     /// <summary>
     /// Skips beta mask modifications after headless GPU initialization was bypassed.
     /// </summary>
